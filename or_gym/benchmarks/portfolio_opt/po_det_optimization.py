@@ -58,3 +58,6 @@ po.Holdings.pprint()
 po.Asset_Sell.pprint()
 po.Asset_Buy.pprint()
 
+print(results)
+print(value(po.PortfolioValue))
+print(value(po.Asset_Buy[1,8]))
