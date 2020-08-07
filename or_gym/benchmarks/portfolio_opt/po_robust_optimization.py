@@ -60,13 +60,13 @@ def PortfolioValue(ro):
 	
 ro.PortfolioValue = Objective(rule=PortfolioValue, sense=maximize)
 
-opt = SolverFactory('ipopt')
+opt = SolverFactory('baron')
 results = opt.solve(ro, tee=False, keepfiles=False)
 
 # ro.Holdings.pprint()
 # ro.Cash.pprint()
-# ro.Asset_Buy.pprint()
-# ro.Asset_Sell.pprint()
+ro.Asset_Buy.pprint()
+ro.Asset_Sell.pprint()
 print(results)
 
 ## Use Robust Solution to solve several instances of Deterministic PO
@@ -133,3 +133,4 @@ for instance in range(1000):
 
 print("Mean Portfolio Value: ", np.mean(Portfolio_value_list))
 print("StDev: ", np.std(Portfolio_value_list))
+print("Minimum Portfolio Value:", min(Portfolio_value_list))
