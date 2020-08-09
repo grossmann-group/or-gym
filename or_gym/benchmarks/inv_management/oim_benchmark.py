@@ -101,3 +101,31 @@ def online_optimize_im_dfo(env):
         
     return actions, rewards, np.array(basestock)
     
+    
+def online_optimize_dyn_im_mip(env,solver='gurobi',solver_kwargs={},warmstart=False,warmstart_kwargs={},print_results=False):
+    env.reset() #reset env
+    env.seed(env.seed_int)
+    
+    #initialize
+    actions, rewards = [], []
+    done = False
+    
+    while not done:
+        #print period
+        print("*******************************************\nPeriod: {} \n".format(env.period)) 
+        #build model
+        model = build_im_dyn_mip_model(env) 
+        #solve model
+        model, results = solve_math_program(model,solver=solver,solver_kwargs=solver_kwargs,print_results=print_results)
+        #Extract action
+        N = env.num_periods - env.period
+        M = env.num_stages
+        Ropt = np.reshape(list(model.R.get_values().values()),(N,M-1)) #extract optimal reorder quantities
+        action = Ropt[0,:] #extract action for current period
+        #Take a step in the simulation
+        state, reward, done, _ = env.step(action)
+        #store results
+        actions.append(action)
+        rewards.append(reward)
+
+    return actions, rewards
