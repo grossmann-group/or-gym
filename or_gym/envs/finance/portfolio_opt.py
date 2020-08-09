@@ -99,11 +99,11 @@ class PortfolioOptEnv(gym.Env):
             ).reshape(self.asset_price_means.shape)
         # Zero out negative asset prices and all following prices - implies
         # equity is bankrupt and worthless.
-        zero_vals = np.vstack(np.where(asset_prices<0))
-        cols = np.unique(zero_vals[0])
-        for c in cols:
-            first_zero = zero_vals[1][np.where(zero_vals[0]==c)[0].min()]
-            asset_prices[c,first_zero:] = 0
+        # zero_vals = np.vstack(np.where(asset_prices<0))
+        # cols = np.unique(zero_vals[0])
+        # for c in cols:
+            # first_zero = zero_vals[1][np.where(zero_vals[0]==c)[0].min()]
+            # asset_prices[c,first_zero:] = 0
         return asset_prices
     
     def step(self, action):
