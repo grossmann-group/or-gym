@@ -600,11 +600,15 @@ def build_im_dyn_mip_model(env):#,bigm=10000):
             #on-hand inventory balance: next period inventory = prev period inventory + arrival from above stage - sales
             if n - mip.lead_time[m] >= 0:
                 mip.inv_bal.add(mip.I[n+1,m] == mip.I[n,m] + mip.R[n - mip.lead_time[m],m] - mip.S[n,m])
+            elif env.period - env.lead_time[m] + n >= 0:
+                mip.inv_bal.add(mip.I[n+1,m] == mip.I[n,m] + env.R[env.period - env.lead_time[m] + n,m] - mip.S[n,m])
             else:
                 mip.inv_bal.add(mip.I[n+1,m] == mip.I[n,m] - mip.S[n,m])
             #pipeline inventory balance: next period inventory = prev period inventory - delivered material + new reorder
             if n - mip.lead_time[m] >= 0:
                 mip.pip_bal.add(mip.T[n+1,m] == mip.T[n,m] - mip.R[n - mip.lead_time[m],m] + mip.R[n,m])
+            elif env.period - env.lead_time[m] + n >= 0:
+                mip.pip_bal.add(mip.T[n+1,m] == mip.T[n,m] - env.R[env.period - env.lead_time[m] + n,m] + mip.R[n,m])
             else:
                 mip.pip_bal.add(mip.T[n+1,m] == mip.T[n,m] + mip.R[n,m])
             #reorder quantity constraints: R = min(c, I[m+1], R1)
@@ -628,13 +632,18 @@ def build_im_dyn_mip_model(env):#,bigm=10000):
             #sales constraints: S = min(I + R[n-L], D + B[n-1]) at stage 0
                 if n - mip.lead_time[m] >= 0:
                     mip.sales1.add(mip.S[n,m] <= mip.I[n,m] + mip.R[n - mip.lead_time[m],m])
+                elif env.period - env.lead_time[m] + n >= 0:
+                    mip.sales1.add(mip.S[n,m] <= mip.I[n,m] + env.R[env.period - env.lead_time[m] + n,m])
                     # mip.sales2.add(mip.S[n,m] >= mip.I[n,m] + mip.R[n - mip.lead_time[m],m] + BigM5 * (1 - mip.y4[n,m]))
                 else:
                     mip.sales1.add(mip.S[n,m] <= mip.I[n,m])
                     # mip.sales2.add(mip.S[n,m] >= mip.I[n,m] + BigM5 * (1 - mip.y4[n,m]))
                 
-                if (backlog) & (n-1>=0):
-                    mip.sales3.add(mip.S[n,m] <= mip.D[n] + mip.B[n-1,m])
+                if (backlog) & env.period >= 1:
+                    if n == 0:
+                        mip.sales3.add(mip.S[n,m] <= mip.D[n] + env.B[env.period-1,m])
+                    else:
+                        mip.sales3.add(mip.S[n,m] <= mip.D[n] + mip.B[n-1,m])
                     # mip.sales4.add(mip.S[n,m] >= mip.D[n] + mip.B[n-1,m] + BigM6 * mip.y4[n,m])
                 else:
                     mip.sales3.add(mip.S[n,m] <= mip.D[n])
@@ -646,7 +655,9 @@ def build_im_dyn_mip_model(env):#,bigm=10000):
             if m == 0:
             #unfulfilled orders at stage 0: U = D + B[n-1] - S
                 if backlog:
-                    if n-1>=0:
+                    if n == 0 & env.period >= 1:
+                        mip.unfulfilled.add(mip.B[n,m] == mip.D[n] + env.B[env.period-1,m] - mip.S[n,m])
+                    elif n >= 1:
                         mip.unfulfilled.add(mip.B[n,m] == mip.D[n] + mip.B[n-1,m] - mip.S[n,m])
                     else:
                         mip.unfulfilled.add(mip.B[n,m] == mip.D[n] - mip.S[n,m])
@@ -655,7 +666,9 @@ def build_im_dyn_mip_model(env):#,bigm=10000):
             else:
             #unfulfilled orders at stage higher level stages: U = R[n,m-1] + B[n-1,m] - S[n,m]
                 if backlog:
-                    if n-1>=0:
+                    if n == 0 & env.period >= 1:
+                        mip.unfulfilled.add(mip.B[n,m] == mip.R[n,m-1] + env.B[env.period-1,m] - mip.S[n,m])
+                    elif n >=1:
                         mip.unfulfilled.add(mip.B[n,m] == mip.R[n,m-1] + mip.B[n-1,m] - mip.S[n,m])
                     else:
                         mip.unfulfilled.add(mip.B[n,m] == mip.R[n,m-1] - mip.S[n,m])
