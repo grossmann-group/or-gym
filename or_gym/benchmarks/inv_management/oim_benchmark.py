@@ -102,7 +102,7 @@ def online_optimize_im_dfo(env):
     return actions, rewards, np.array(basestock)
     
     
-def online_optimize_dyn_im_mip(env,solver='gurobi',solver_kwargs={},warmstart=False,warmstart_kwargs={},print_results=False):
+def online_optimize_dyn_im_lp(env,solver='gurobi',solver_kwargs={},warmstart=False,warmstart_kwargs={},print_results=False):
     env.reset() #reset env
     env.seed(env.seed_int)
     
@@ -114,7 +114,7 @@ def online_optimize_dyn_im_mip(env,solver='gurobi',solver_kwargs={},warmstart=Fa
         #print period
         print("*******************************************\nPeriod: {} \n".format(env.period)) 
         #build model
-        model = build_im_dyn_mip_model(env) 
+        model = build_im_dyn_lp_model(env) 
         #solve model
         model, results = solve_math_program(model,solver=solver,solver_kwargs=solver_kwargs,print_results=print_results)
         #Extract action

@@ -47,11 +47,11 @@ def optimize_im_dfo(env):
         env.step(action=env.base_stock_action(z=results.zopt)) 
     return results
     
-def optimize_im_pi_mip(env,solver='gurobi',solver_kwargs={},warmstart=False,warmstart_kwargs={}):
+def optimize_im_pi_lp(env,solver='gurobi',solver_kwargs={},warmstart=False,warmstart_kwargs={}):
     #run optimization
     env.reset()
     env.seed(env.seed_int)
-    model = build_im_pi_mip_model(env)
+    model = build_im_pi_lp_model(env)
     model, results = solve_math_program(model, solver = solver, solver_kwargs = solver_kwargs,
                                         warmstart=warmstart, warmstart_kwargs=warmstart_kwargs)
     N = env.num_periods
