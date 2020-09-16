@@ -13,7 +13,7 @@ from scipy.stats import *
 from or_gym.utils import assign_env_config
 from collections import deque
 
-class InvManagementNetworkEnv(gym.Env):
+class NetInvMgmtMasterEnv(gym.Env):
     '''
     The supply network environment is structured as follows:
     
@@ -63,13 +63,13 @@ class InvManagementNetworkEnv(gym.Env):
             - I0 = initial inventory.
             - C = production capacity.
             - v = production yield in the range (0, 1].
-            - p = unit price for product sales at that node.
-            - r = unit cost for replenishment orders at that node.
-            - b = backlog cost or goodwill loss (per unit) for unfulfilled market demand.
+            - o = unit operating cost (feed-based)
             - h = unit holding cost for excess on-hand inventory.
             - g = unit holding cost for pipeline inventory.
         Edge specific parameters:
             - L = lead times in betwen adjacent nodes.
+            - p = unit price to send material between adjacent nodes (purchase price/reorder cost)
+            - b = unit backlog cost or good-wil loss for unfulfilled market demand between adjacent retailer and market.
         backlog = Are unfulfilled orders backlogged? True = backlogged, False = lost sales.
         prob_dist = Value between 1 and 4. Specifies distribution for customer demand.
             1: poisson distribution
@@ -122,7 +122,7 @@ class InvManagementNetworkEnv(gym.Env):
                                         g = 0.000)
         self.graph.add_nodes_from([5])
         self.graph.add_edges_from([(1,0,{'p': 2.00,
-                                         'b': 0.10},
+                                         'b': 0.10}),
                                    (2,1,{'L': 3,
                                          'p': 1.50}),
                                    (3,2,{'L': 5,
@@ -183,7 +183,7 @@ class InvManagementNetworkEnv(gym.Env):
                                                     set(self.distrib),
                                                     set(self.factory),
                                                     set(self.rawmat)), "The union of market, distribution, factory, and raw material nodes is not equal to the system nodes."
-        for j in self.graph.nodes()):
+        for j in self.graph.nodes():
             if 'I0' in self.graph.nodes[j]:
                 assert self.graph.nodes[j]['I0'] >= 0, "The initial inventory cannot be negative for node {}.".format(j)
             if 'h' in self.graph.nodes[j]:
@@ -230,7 +230,7 @@ class InvManagementNetworkEnv(gym.Env):
         self.lt_max = np.max([self.graph.edges[e]['L'] for e in self.graph.edges() if 'L' in self.graph.edges[e]])
         self.init_inv_max = np.max([self.graph.nodes[j]['I0'] for j in self.graph.nodes() if 'I0' in self.graph.nodes[j]])
         self.capacity_max = np.max([self.graph.nodes[j]['C'] for j in self.graph.nodes() if 'C' in self.graph.nodes[j]])
-        self.pipeline_length = len(self.main_nodes)*(lt_max+1)
+        self.pipeline_length = len(self.main_nodes)*(self.lt_max+1)
         self.action_space = gym.spaces.Box(
             low=np.zeros(num_reorder_links), 
             high=np.ones(num_reorder_links)*(self.init_inv_max + self.capacity_max*self.num_periods), 
@@ -264,7 +264,6 @@ class InvManagementNetworkEnv(gym.Env):
         '''
         T = self.num_periods
         J = len(self.main_nodes)
-        I0 = self.init_inv
         M = len(self.markets)
         RM = len(self.retail_links) #number of retailer-market pairs
         PS = len(self.reorder_links) #number of purchaser-supplier pairs in the network
@@ -351,7 +350,7 @@ class InvManagementNetworkEnv(gym.Env):
                 self.S.loc[t,(supplier, purchaser)] = min(request, C, v*I_supplier)
             
         #Receive deliveries and update inventories
-        for j in self.main_nodes
+        for j in self.main_nodes:
             #update pipeline inventories
             incoming = []
             for k in self.graph.predecessors(j):
@@ -434,43 +433,44 @@ class InvManagementNetworkEnv(gym.Env):
         '''
         return self.action_space.sample()
         
-    def base_stock_action(self,z):
-        '''
-        Sample action (number of units to request) based on a base-stock policy (order up to z policy)
-        z = [integer list; dimension |Stages| - 1] base stock level (no inventory at the last stage)
-        '''
-        n = self.period
-        c = self.supply_capacity
-        m = self.num_stages
-        IP = self._update_base_stock_policy_state() # extract inventory position (current state)
+    # def base_stock_action(self,z):
+    #     '''
+    #     Sample action (number of units to request) based on a base-stock policy (order up to z policy)
+    #     z = [integer list; dimension |Stages| - 1] base stock level (no inventory at the last stage)
+    #     '''
+    #     n = self.period
+    #     c = self.supply_capacity
+    #     m = self.num_stages
+    #     IP = self._update_base_stock_policy_state() # extract inventory position (current state)
         
-        try:
-            dimz = len(z)
-        except:
-            dimz = 1
-        assert dimz == m-1, "Wrong dimension on base stock level vector. Should be # Stages - 1."
+    #     try:
+    #         dimz = len(z)
+    #     except:
+    #         dimz = 1
+    #     assert dimz == m-1, "Wrong dimension on base stock level vector. Should be # Stages - 1."
         
-        # calculate total inventory position at the beginning of period n
-        R = z - IP # replenishmet order to reach zopt
+    #     # calculate total inventory position at the beginning of period n
+    #     R = z - IP # replenishmet order to reach zopt
 
-        # check if R can actually be fulfilled (capacity and inventory constraints)
-        Im1 = np.append(self.I[n,1:], np.Inf) # available inventory at the m+1 stage
-                                            # NOTE: last stage has unlimited raw materials
-        Rpos = np.column_stack((np.zeros(len(R)),R)) # augmented materix to get replenishment only if positive
-        A = np.column_stack((c, np.max(Rpos,axis=1), Im1)) # augmented matrix with c, R, and I_m+1 as columns
+    #     # check if R can actually be fulfilled (capacity and inventory constraints)
+    #     Im1 = np.append(self.I[n,1:], np.Inf) # available inventory at the m+1 stage
+    #                                         # NOTE: last stage has unlimited raw materials
+    #     Rpos = np.column_stack((np.zeros(len(R)),R)) # augmented materix to get replenishment only if positive
+    #     A = np.column_stack((c, np.max(Rpos,axis=1), Im1)) # augmented matrix with c, R, and I_m+1 as columns
         
-        R = np.min(A, axis = 1) # replenishmet order to reach zopt (capacity constrained)
+    #     R = np.min(A, axis = 1) # replenishmet order to reach zopt (capacity constrained)
         
-        return R
+    #     return R
         
-class InvManagementBacklogEnv(InvManagementMasterEnv):
+class NetInvMgmtBacklogEnv(NetInvMgmtMasterEnv):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-class InvManagementLostSalesEnv(InvManagementMasterEnv):
+class NetInvMgmtLostSalesEnv(NetInvMgmtMasterEnv):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.backlog = False
         self.observation_space = gym.spaces.Box(
             low=np.zeros(self.pipeline_length), # Never goes negative without backlog
-            high=np.ones(self.pipeline_length)*self.supply_capacity.max()*self.num_periods, dtype=np.int32)
+            high=np.ones(self.pipeline_length)*(self.init_inv_max + self.capacity_max*self.num_periods), 
+            dtype=np.int32)

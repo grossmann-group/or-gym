@@ -1,2 +1,2 @@
-from or_gym.envs.supply_chain.inventory_management import InvManagementBacklogEnv
-from or_gym.envs.supply_chain.inventory_management import InvManagementLostSalesEnv
+from or_gym.envs.supply_network.inventory_management import NetInvMgmtBacklogEnv
+from or_gym.envs.supply_network.inventory_management import NetInvMgmtLostSalesEnv
