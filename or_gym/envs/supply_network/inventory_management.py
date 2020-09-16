@@ -212,7 +212,7 @@ class NetInvMgmtMasterEnv(gym.Env):
                 assert self.graph.edges[e]['b'] >= 0, "The unfulfilled demand costs joining nodes {} cannot be negative.".format(e)
         assert self.backlog == False or self.backlog == True, "The backlog parameter must be a boolean."
         assert self.graph.number_of_nodes() >= 2, "The minimum number of nodes is 2. Please try again"
-        assert self.alpha>0 & self.alpha<=1, "alpha must be in the range (0, 1]."
+        assert self.alpha>0 and self.alpha<=1, "alpha must be in the range (0, 1]."
         
         # # select distribution
         # self.demand_dist = distributions[self.dist]  
@@ -220,9 +220,6 @@ class NetInvMgmtMasterEnv(gym.Env):
         # set random generation seed (unless using user demands)
         # if self.dist < 5:
         self.seed(self.seed_int)
-
-        # intialize
-        self.reset()
         
         # action space (reorder quantities for each node for each supplier; list)
         # An action is defined for every node
@@ -240,6 +237,9 @@ class NetInvMgmtMasterEnv(gym.Env):
             low=-np.ones(self.pipeline_length)*(self.init_inv_max + self.capacity_max*self.num_periods)*10,
             high=np.ones(self.pipeline_length)*(self.init_inv_max + self.capacity_max*self.num_periods), 
             dtype=np.int32)
+
+        # intialize
+        self.reset()
 
     def seed(self,seed=None):
         '''
@@ -293,7 +293,6 @@ class NetInvMgmtMasterEnv(gym.Env):
     def _update_state(self):
         m = len(self.main_nodes)
         t = self.period
-        lt_max = self.lead_time.max()
         state = np.zeros(self.pipeline_length)
         state[:m] = self.X.loc[t,:]
         if t == 0:
@@ -340,14 +339,14 @@ class NetInvMgmtMasterEnv(gym.Env):
                 self.S.loc[t,(supplier, purchaser)] = request
             elif supplier in self.distrib:
                 X_supplier = self.X.loc[t,supplier] #request limited by available inventory at beginning of period
-                self.R.loc[t,(supplier, purchaser)] = min(request, I_supplier)
-                self.S.loc[t,(supplier, purchaser)] = min(request, I_supplier)
+                self.R.loc[t,(supplier, purchaser)] = min(request, X_supplier)
+                self.S.loc[t,(supplier, purchaser)] = min(request, X_supplier)
             elif supplier in self.factory:
                 C = self.graph.nodes[supplier]['C'] #supplier capacity
                 v = self.graph.nodes[supplier]['v'] #supplier yield
                 X_supplier = self.X.loc[t,supplier] #on-hand inventory at beginning of period
-                self.R.loc[t,(supplier, purchaser)] = min(request, C, v*I_supplier)
-                self.S.loc[t,(supplier, purchaser)] = min(request, C, v*I_supplier)
+                self.R.loc[t,(supplier, purchaser)] = min(request, C, v*X_supplier)
+                self.S.loc[t,(supplier, purchaser)] = min(request, C, v*X_supplier)
             
         #Receive deliveries and update inventories
         for j in self.main_nodes:
