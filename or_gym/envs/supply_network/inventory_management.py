@@ -407,7 +407,7 @@ class NetInvMgmtMasterEnv(gym.Env):
                 UP = np.sum([self.graph.edges[(j,k)]['b'] * self.U.loc[t,(j,k)] for k in self.graph.successors(j)]) #unfulfilled penalty
             else:
                 UP = 0
-            self.P.loc[t,j] = a**n * (SR - PC - OC - HC - UP)
+            self.P.loc[t,j] = a**t * (SR - PC - OC - HC - UP)
         
         # update period
         self.period += 1  
