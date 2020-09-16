@@ -65,11 +65,16 @@ class NetInvMgmtMasterEnv(gym.Env):
             - v = production yield in the range (0, 1].
             - o = unit operating cost (feed-based)
             - h = unit holding cost for excess on-hand inventory.
-            - g = unit holding cost for pipeline inventory.
         Edge specific parameters:
             - L = lead times in betwen adjacent nodes.
             - p = unit price to send material between adjacent nodes (purchase price/reorder cost)
             - b = unit backlog cost or good-wil loss for unfulfilled market demand between adjacent retailer and market.
+            - g = unit holding cost for pipeline inventory on a specified edge.
+            - prob_dist = probability distribution function on a (retailer, market) edge.
+            - demand_dist = demand distribution for (retailer, market) edge. Two options:
+                - use scipy probability distribution: must be a lambda function calling the rvs method of the distribution
+                    i.e. lambda: poisson.rvs(mu=20)
+                - use a list of user specified demands for each period. 
         backlog = Are unfulfilled orders backlogged? True = backlogged, False = lost sales.
         prob_dist = Value between 1 and 4. Specifies distribution for customer demand.
             1: poisson distribution
@@ -89,6 +94,7 @@ class NetInvMgmtMasterEnv(gym.Env):
             each time period in the simulation.
         '''
         # set default (arbitrary) values when creating environment (if no args or kwargs are given)
+        self._max_rewards = 2000
         self.num_periods = 30
         self.backlog = True
         self.alpha = 0.97
@@ -97,40 +103,40 @@ class NetInvMgmtMasterEnv(gym.Env):
                                    columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
         self._max_rewards = 2000
         self.graph = nx.DiGraph()
-        self.graph.add_nodes_from([0], prob_dist = 1,
-                                       dist_param = {'mu': 20})
+        self.graph.add_nodes_from([0])
         self.graph.add_nodes_from([1], I0 = 100,
-                                        h = 0.150,
-                                        g = 0.000)
+                                        h = 0.150)
         self.graph.add_nodes_from([2], I0 = 100,
                                         C = 100,
                                         o = 0.000,
                                         v = 1.000,
-                                        h = 0.100,
-                                        g = 0.000)
+                                        h = 0.100)
         self.graph.add_nodes_from([3], I0 = 200,
                                         C = 90,
                                         o = 0.000,
                                         v = 1.000,
-                                        h = 0.050,
-                                        g = 0.000)
-        self.graph.add_nodes_from([4], I0 = np.Inf,
+                                        h = 0.050)
+        self.graph.add_nodes_from([4], I0 = 1000,
                                         C = 80,
-                                        o = 0.000,
+                                        o = 0.500,
                                         v = 1.000,
-                                        h = 0.000,
-                                        g = 0.000)
+                                        h = 0.000)
         self.graph.add_nodes_from([5])
         self.graph.add_edges_from([(1,0,{'p': 2.00,
-                                         'b': 0.10}),
+                                         'b': 0.10,
+                                         'demand_dist': lambda: poisson.rvs(mu=20)}),
                                    (2,1,{'L': 3,
-                                         'p': 1.50}),
+                                         'p': 1.50,
+                                         'g': 0.00}),
                                    (3,2,{'L': 5,
-                                         'p': 1.00}),
+                                         'p': 1.00,
+                                         'g': 0.00}),
                                    (4,3,{'L': 10,
-                                         'p': 0.75}),
+                                         'p': 0.75,
+                                         'g': 0.00}),
                                    (5,4,{'L': 0,
-                                         'p': 0.50})])
+                                         'p': 0.00,
+                                         'g': 0.00})])
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
@@ -161,22 +167,15 @@ class NetInvMgmtMasterEnv(gym.Env):
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
-        self.markets = [j for j in self.graph.nodes() if 'prob_dist' in self.graph.nodes[j]]
+        self.markets = [j for j in self.graph.nodes() if len(list(self.graph.successors(j))) == 0]
         self.distrib = [j for j in self.graph.nodes() if 'C' not in self.graph.nodes[j] and 'I0' in self.graph.nodes[j]]
         self.retail = [j for j in self.graph.nodes() if len(set.intersection(set(self.graph.successors(j)), set(self.markets))) > 0]
         self.factory = [j for j in self.graph.nodes() if 'C' in self.graph.nodes[j]]
-        self.rawmat = [j for j in self.graph.nodes() if len(self.graph.nodes[j]) == 0]
+        self.rawmat = [j for j in self.graph.nodes() if len(list(self.graph.predecessors(j))) == 0]
         self.main_nodes = np.sort(self.distrib + self.factory)
-        self.reorder_links = [e for e in self.graph.edges() if 'L' in self.graph.edges[e] and e[0] not in self.rawmat] #exclude links to markets (these cannot have lead time 'L')
+        self.reorder_links = [e for e in self.graph.edges() if 'L' in self.graph.edges[e]] #exclude links to markets (these cannot have lead time 'L')
         self.retail_links = [e for e in self.graph.edges() if 'L' not in self.graph.edges[e]] #links joining retailers to markets
         self.sales_links = set.union(set(self.reorder_links), set(self.retail_links)) #all links involved in sale in the network
-        
-        #  dictionary with options for demand distributions
-        self.demand_dist = {1:poisson, 
-                            2:binom,
-                            3:randint,
-                            4:geom,
-                            5:self.user_D}
 
         # check inputs
         assert set(self.graph.nodes()) == set.union(set(self.markets),
@@ -188,21 +187,12 @@ class NetInvMgmtMasterEnv(gym.Env):
                 assert self.graph.nodes[j]['I0'] >= 0, "The initial inventory cannot be negative for node {}.".format(j)
             if 'h' in self.graph.nodes[j]:
                 assert self.graph.nodes[j]['h'] >= 0, "The inventory holding costs cannot be negative for node {}.".format(j)
-            if 'g' in self.graph.nodes[j]:
-                assert self.graph.nodes[j]['g'] >= 0, "The pipeline inventory holding costs cannot be negative for node {}.".format(j)
             if 'C' in self.graph.nodes[j]:
                 assert self.graph.nodes[j]['C'] > 0, "The production capacity must be positive for node {}.".format(j)
             if 'o' in self.graph.nodes[j]:
                 assert self.graph.nodes[j]['o'] >= 0, "The operating costs cannot be negative for node {}.".format(j)
             if 'v' in self.graph.nodes[j]:
                 assert self.graph.nodes[j]['v'] > 0 and self.graph.nodes[j]['v'] <= 1, "The production yield must be in the range (0, 1] for node {}.".format(j)
-            if 'prob_dist' in self.graph.nodes[j]:
-                assert self.graph.nodes[j]['prob_dist'] in [1,2,3,4,5], "prob_dist must be one of 1, 2, 3, 4, 5 for market {}.".format(j)
-            if 'dist_param' in self.graph.nodes[j]:
-                if self.graph.nodes[j]['prob_dist'] < 5:
-                    assert self.demand_dist[self.graph.nodes[j]['prob_dist']].cdf(0,**self.graph.nodes[j]['dist_param']), "Wrong parameters given for demand distribution at market {}.".format(j)
-                else:
-                    assert self.user_D.shape == (self.num_periods, len(self.markets)), "The shape of the user specified demand distribution at market {} is not equal to the number of periods x number of markets.".format(j)
         for e in self.graph.edges():
             if 'L' in self.graph.edges[e]:
                 assert self.graph.edges[e]['L'] >= 0, "The lead time joining nodes {} cannot be negative.".format(e)
@@ -210,6 +200,11 @@ class NetInvMgmtMasterEnv(gym.Env):
                 assert self.graph.edges[e]['p'] >= 0, "The sales price joining nodes {} cannot be negative.".format(e)
             if 'b' in self.graph.edges[e]:
                 assert self.graph.edges[e]['b'] >= 0, "The unfulfilled demand costs joining nodes {} cannot be negative.".format(e)
+            if 'g' in self.graph.edges[e]:
+                assert self.graph.edges[e]['g'] >= 0, "The pipeline inventory holding costs joining nodes {} cannot be negative.".format(e)
+            if 'demand_dist' in self.graph.edges[e]:
+                if isinstance(self.graph.edges[e]['demand_dist'], list):
+                    assert len(self.graph.edges[e]['demand_dist']) == self.num_periods, "The user specified demand joining (retailer, market): {} must be of length {}.".format(e,self.num_periods)
         assert self.backlog == False or self.backlog == True, "The backlog parameter must be a boolean."
         assert self.graph.number_of_nodes() >= 2, "The minimum number of nodes is 2. Please try again"
         assert self.alpha>0 and self.alpha<=1, "alpha must be in the range (0, 1]."
@@ -270,8 +265,8 @@ class NetInvMgmtMasterEnv(gym.Env):
         
         # simulation result lists
         self.X=pd.DataFrame(data = np.zeros([T + 1, J]), columns = self.main_nodes) # inventory at the beginning of each period
-        self.Y=pd.DataFrame(data = np.zeros([T + 1, PS]), columns = pd.MultiIndex.from_tuples(self.reorder_links, names = ['Seller','Purchaser'])) # pipeline inventory at the beginning of each period
-        self.R=pd.DataFrame(data = np.zeros([T, PS]), columns = pd.MultiIndex.from_tuples(self.reorder_links, names = ['Seller','Purchaser'])) # replenishment orders
+        self.Y=pd.DataFrame(data = np.zeros([T + 1, PS]), columns = pd.MultiIndex.from_tuples(self.reorder_links, names = ['Source','Receiver'])) # pipeline inventory at the beginning of each period
+        self.R=pd.DataFrame(data = np.zeros([T, PS]), columns = pd.MultiIndex.from_tuples(self.reorder_links, names = ['Supplier','Requester'])) # replenishment orders
         self.S=pd.DataFrame(data = np.zeros([T, SL]), columns = pd.MultiIndex.from_tuples(self.sales_links, names = ['Seller','Purchaser'])) # units sold
         self.D=pd.DataFrame(data = np.zeros([T, RM]), columns = pd.MultiIndex.from_tuples(self.retail_links, names = ['Retailer','Market'])) # demand at retailers
         self.U=pd.DataFrame(data = np.zeros([T, RM]), columns = pd.MultiIndex.from_tuples(self.retail_links, names = ['Retailer','Market'])) # unfulfilled demand for each market - retailer pair
@@ -358,7 +353,7 @@ class NetInvMgmtMasterEnv(gym.Env):
                 else:
                     delivery = 0
                 incoming += [delivery] #update incoming material
-                self.Y.loc[t+1,(k,j)] = self.Y.loc[t,(k,j)] - delivery - self.R.loc[t,(k,j)]
+                self.Y.loc[t+1,(k,j)] = self.Y.loc[t,(k,j)] - delivery + self.R.loc[t,(k,j)]
 
             #update on-hand inventory
             if 'v' in self.graph.nodes[j]: #extract production yield
@@ -371,29 +366,32 @@ class NetInvMgmtMasterEnv(gym.Env):
         # demand is realized
         for j in self.retail:
             for k in self.markets:
-                dist = self.graph.nodes[k]['prob_dist'] #extract distribution id
-                if dist < 5:
-                    D = self.demand_dist[dist].rvs(**self.graph.nodes[k]['dist_param'])
+                Demand = self.graph.edges[(j,k)]['demand_dist']
+                if isinstance(Demand, list):
+                    D = Demand[t]
                 else:
-                    D = self.demand_dist[dist].loc[t,(j,k)] # user specified demand
+                    D = Demand()
                 if self.backlog and t >= 1:
-                    self.D.loc[t,(j,k)] = D + self.U.loc[t,(j,k)]
+                    self.D.loc[t,(j,k)] = D + self.U.loc[t-1,(j,k)]
                 else:
                     self.D.loc[t,(j,k)] = D
                 #satisfy demand up to available level
                 X_retail = self.X.loc[t+1,j] #get inventory at retail before demand was realized
-                self.S.loc[t,(j,k)] = min(D, X_retail) #perform sale
+                self.S.loc[t,(j,k)] = min(self.D.loc[t,(j,k)], X_retail) #perform sale
                 self.X.loc[t+1,j] -= self.S.loc[t,(j,k)] #update inventory
-                self.U.loc[t,(j,k)] = D - self.S.loc[t,(j,k)] #update unfulfilled orders
+                self.U.loc[t,(j,k)] = self.D.loc[t,(j,k)] - self.S.loc[t,(j,k)] #update unfulfilled orders
 
         # calculate profit
         for j in self.main_nodes:
             a = self.alpha
             SR = np.sum([self.graph.edges[(j,k)]['p'] * self.S.loc[t,(j,k)] for k in self.graph.successors(j)]) #sales revenue
             PC = np.sum([self.graph.edges[(k,j)]['p'] * self.R.loc[t,(k,j)] for k in self.graph.predecessors(j)]) #purchasing costs
-            HC = self.graph.nodes[j]['h'] * self.X.loc[t+1,j] + np.sum([self.graph.edges[(k,j)]['g'] * self.Y.loc[t+1,(k,j)] for k in self.graph.predecessors(j)]) #holding costs
+            if j not in self.rawmat:
+                HC = self.graph.nodes[j]['h'] * self.X.loc[t+1,j] + np.sum([self.graph.edges[(k,j)]['g'] * self.Y.loc[t+1,(k,j)] for k in self.graph.predecessors(j)]) #holding costs
+            else:
+                HC = 0
             if j in self.factory:
-                OC = self.graph.nodes[j]['o'] / self.graph.nodes[j]['v'] * np.sum([self.S.loc[t,j,k] for k in self.graph.successors(j)]) #operating costs
+                OC = self.graph.nodes[j]['o'] / self.graph.nodes[j]['v'] * np.sum([self.S.loc[t,(j,k)] for k in self.graph.successors(j)]) #operating costs
             else:
                 OC = 0
             if j in self.retail:
