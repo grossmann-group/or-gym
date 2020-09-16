@@ -79,6 +79,14 @@ register(id='InvManagement-v1',
 	entry_point='or_gym.envs.supply_chain.inventory_management:InvManagementLostSalesEnv'
 )
 
+register(id='InvManagement-v2',
+	entry_point='or_gym.envs.supply_network.inventory_management:NetInvMgmtBacklogEnv'
+)
+
+register(id='InvManagement-v3',
+	entry_point='or_gym.envs.supply_network.inventory_management:NetInvMgmtLostSalesEnv'
+)
+
 # Asset Allocation Envs
 register(id='PortfolioOpt-v0',
 	entry_point='or_gym.envs.finance.portfolio_opt:PortfolioOptEnv'
