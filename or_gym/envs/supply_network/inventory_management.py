@@ -264,7 +264,6 @@ class NetInvMgmtMasterEnv(gym.Env):
         '''
         T = self.num_periods
         J = len(self.main_nodes)
-        M = len(self.markets)
         RM = len(self.retail_links) #number of retailer-market pairs
         PS = len(self.reorder_links) #number of purchaser-supplier pairs in the network
         SL = len(self.sales_links) #number of edges in the network (excluding links form raw material nodes)
@@ -390,11 +389,6 @@ class NetInvMgmtMasterEnv(gym.Env):
         # calculate profit
         for j in self.main_nodes:
             a = self.alpha
-            p = self.graph.nodes[j]['p']
-            r = self.graph.nodes[j]['r']
-            h = self.graph.nodes[j]['h']
-            g = self.graph.nodes[j]['g']
-            b = self.graph.nodes[j]['b']
             SR = np.sum([self.graph.edges[(j,k)]['p'] * self.S.loc[t,(j,k)] for k in self.graph.successors(j)]) #sales revenue
             PC = np.sum([self.graph.edges[(k,j)]['p'] * self.R.loc[t,(k,j)] for k in self.graph.predecessors(j)]) #purchasing costs
             HC = self.graph.nodes[j]['h'] * self.X.loc[t+1,j] + np.sum([self.graph.edges[(k,j)]['g'] * self.Y.loc[t+1,(k,j)] for k in self.graph.predecessors(j)]) #holding costs
@@ -403,7 +397,6 @@ class NetInvMgmtMasterEnv(gym.Env):
             else:
                 OC = 0
             if j in self.retail:
-                b = self.graph.nodes[j]['b']
                 UP = np.sum([self.graph.edges[(j,k)]['b'] * self.U.loc[t,(j,k)] for k in self.graph.successors(j)]) #unfulfilled penalty
             else:
                 UP = 0
