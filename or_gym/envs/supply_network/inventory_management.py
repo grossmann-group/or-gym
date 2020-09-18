@@ -124,7 +124,8 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.graph.add_nodes_from([5])
         self.graph.add_edges_from([(1,0,{'p': 2.00,
                                          'b': 0.10,
-                                         'demand_dist': lambda: poisson.rvs(mu=20)}),
+                                         'demand_dist': poisson,
+                                         'dist_param': {'mu': 20}}),
                                    (2,1,{'L': 3,
                                          'p': 1.50,
                                          'g': 0.00}),
@@ -167,18 +168,18 @@ class NetInvMgmtMasterEnv(gym.Env):
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
-        self.markets = [j for j in self.graph.nodes() if len(list(self.graph.successors(j))) == 0]
+        self.market = [j for j in self.graph.nodes() if len(list(self.graph.successors(j))) == 0]
         self.distrib = [j for j in self.graph.nodes() if 'C' not in self.graph.nodes[j] and 'I0' in self.graph.nodes[j]]
-        self.retail = [j for j in self.graph.nodes() if len(set.intersection(set(self.graph.successors(j)), set(self.markets))) > 0]
+        self.retail = [j for j in self.graph.nodes() if len(set.intersection(set(self.graph.successors(j)), set(self.market))) > 0]
         self.factory = [j for j in self.graph.nodes() if 'C' in self.graph.nodes[j]]
         self.rawmat = [j for j in self.graph.nodes() if len(list(self.graph.predecessors(j))) == 0]
         self.main_nodes = np.sort(self.distrib + self.factory)
         self.reorder_links = [e for e in self.graph.edges() if 'L' in self.graph.edges[e]] #exclude links to markets (these cannot have lead time 'L')
         self.retail_links = [e for e in self.graph.edges() if 'L' not in self.graph.edges[e]] #links joining retailers to markets
-        self.sales_links = set.union(set(self.reorder_links), set(self.retail_links)) #all links involved in sale in the network
+        self.network_links = [e for e in self.graph.edges()] #all links involved in sale in the network
 
         # check inputs
-        assert set(self.graph.nodes()) == set.union(set(self.markets),
+        assert set(self.graph.nodes()) == set.union(set(self.market),
                                                     set(self.distrib),
                                                     set(self.factory),
                                                     set(self.rawmat)), "The union of market, distribution, factory, and raw material nodes is not equal to the system nodes."
@@ -205,6 +206,9 @@ class NetInvMgmtMasterEnv(gym.Env):
             if 'demand_dist' in self.graph.edges[e]:
                 if isinstance(self.graph.edges[e]['demand_dist'], list):
                     assert len(self.graph.edges[e]['demand_dist']) == self.num_periods, "The user specified demand joining (retailer, market): {} must be of length {}.".format(e,self.num_periods)
+                else:
+                    dist = self.graph.edges[e]['demand_dist'] #extract distribution
+                    assert dist.cdf(0,**self.graph.edges[e]['dist_param']), "Wrong parameters passed to the demand distribution joining (retailer, market): {}.".format(e)
         assert self.backlog == False or self.backlog == True, "The backlog parameter must be a boolean."
         assert self.graph.number_of_nodes() >= 2, "The minimum number of nodes is 2. Please try again"
         assert self.alpha>0 and self.alpha<=1, "alpha must be in the range (0, 1]."
@@ -261,16 +265,28 @@ class NetInvMgmtMasterEnv(gym.Env):
         J = len(self.main_nodes)
         RM = len(self.retail_links) #number of retailer-market pairs
         PS = len(self.reorder_links) #number of purchaser-supplier pairs in the network
-        SL = len(self.sales_links) #number of edges in the network (excluding links form raw material nodes)
+        SL = len(self.network_links) #number of edges in the network (excluding links form raw material nodes)
         
         # simulation result lists
-        self.X=pd.DataFrame(data = np.zeros([T + 1, J]), columns = self.main_nodes) # inventory at the beginning of each period
-        self.Y=pd.DataFrame(data = np.zeros([T + 1, PS]), columns = pd.MultiIndex.from_tuples(self.reorder_links, names = ['Source','Receiver'])) # pipeline inventory at the beginning of each period
-        self.R=pd.DataFrame(data = np.zeros([T, PS]), columns = pd.MultiIndex.from_tuples(self.reorder_links, names = ['Supplier','Requester'])) # replenishment orders
-        self.S=pd.DataFrame(data = np.zeros([T, SL]), columns = pd.MultiIndex.from_tuples(self.sales_links, names = ['Seller','Purchaser'])) # units sold
-        self.D=pd.DataFrame(data = np.zeros([T, RM]), columns = pd.MultiIndex.from_tuples(self.retail_links, names = ['Retailer','Market'])) # demand at retailers
-        self.U=pd.DataFrame(data = np.zeros([T, RM]), columns = pd.MultiIndex.from_tuples(self.retail_links, names = ['Retailer','Market'])) # unfulfilled demand for each market - retailer pair
-        self.P=pd.DataFrame(data = np.zeros([T, J]), columns = self.main_nodes) # profit at each node
+        self.X=pd.DataFrame(data = np.zeros([T + 1, J]), 
+                            columns = self.main_nodes) # inventory at the beginning of each period
+        self.Y=pd.DataFrame(data = np.zeros([T + 1, PS]), 
+                            columns = pd.MultiIndex.from_tuples(self.reorder_links,
+                            names = ['Source','Receiver'])) # pipeline inventory at the beginning of each period
+        self.R=pd.DataFrame(data = np.zeros([T, PS]), 
+                            columns = pd.MultiIndex.from_tuples(self.reorder_links, 
+                            names = ['Supplier','Requester'])) # replenishment orders
+        self.S=pd.DataFrame(data = np.zeros([T, SL]), 
+                            columns = pd.MultiIndex.from_tuples(self.network_links, 
+                            names = ['Seller','Purchaser'])) # units sold
+        self.D=pd.DataFrame(data = np.zeros([T, RM]), 
+                            columns = pd.MultiIndex.from_tuples(self.retail_links, 
+                            names = ['Retailer','Market'])) # demand at retailers
+        self.U=pd.DataFrame(data = np.zeros([T, RM]), 
+                            columns = pd.MultiIndex.from_tuples(self.retail_links, 
+                            names = ['Retailer','Market'])) # unfulfilled demand for each market - retailer pair
+        self.P=pd.DataFrame(data = np.zeros([T, J]), 
+                            columns = self.main_nodes) # profit at each node
         
         # initializetion
         self.period = 0 # initialize time
@@ -365,12 +381,12 @@ class NetInvMgmtMasterEnv(gym.Env):
             
         # demand is realized
         for j in self.retail:
-            for k in self.markets:
+            for k in self.market:
                 Demand = self.graph.edges[(j,k)]['demand_dist']
                 if isinstance(Demand, list):
                     D = Demand[t]
                 else:
-                    D = Demand()
+                    D = Demand.rvs(**self.graph.edges[(j,k)]['dist_param'])
                 if self.backlog and t >= 1:
                     self.D.loc[t,(j,k)] = D + self.U.loc[t-1,(j,k)]
                 else:
