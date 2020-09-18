@@ -103,25 +103,39 @@ class NetInvMgmtMasterEnv(gym.Env):
                                    columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
         self._max_rewards = 2000
         self.graph = nx.DiGraph()
+        # Retailer
         self.graph.add_nodes_from([0])
         self.graph.add_nodes_from([1], I0 = 100,
                                         h = 0.150)
+        # Distributors
         self.graph.add_nodes_from([2], I0 = 100,
                                         C = 100,
                                         o = 0.000,
                                         v = 1.000,
                                         h = 0.100)
-        self.graph.add_nodes_from([3], I0 = 200,
+        self.graph.add_nodes_from([3], I0 = 80,
+                                        C = 100,
+                                        o = 0.000,
+                                        v = 1.000,
+                                        h = 0.100)
+        # Manufacturers
+        self.graph.add_nodes_from([4], I0 = 200,
                                         C = 90,
                                         o = 0.000,
                                         v = 1.000,
                                         h = 0.050)
-        self.graph.add_nodes_from([4], I0 = 1000,
+        self.graph.add_nodes_from([5], I0 = 150,
+                                        C = 90,
+                                        o = 0.000,
+                                        v = 1.000,
+                                        h = 0.150)
+        # Raw materials
+        self.graph.add_nodes_from([6], I0 = 1000,
                                         C = 80,
                                         o = 0.500,
                                         v = 1.000,
                                         h = 0.000)
-        self.graph.add_nodes_from([5])
+        self.graph.add_nodes_from([7])
         self.graph.add_edges_from([(1,0,{'p': 2.00,
                                          'b': 0.10,
                                          'demand_dist': poisson,
@@ -129,13 +143,25 @@ class NetInvMgmtMasterEnv(gym.Env):
                                    (2,1,{'L': 3,
                                          'p': 1.50,
                                          'g': 0.00}),
-                                   (3,2,{'L': 5,
+                                   (3,1,{'L': 6,
+                                         'p': 0.80,
+                                         'g': 0.00}),
+                                   (4,2,{'L': 5,
                                          'p': 1.00,
                                          'g': 0.00}),
                                    (4,3,{'L': 10,
                                          'p': 0.75,
                                          'g': 0.00}),
-                                   (5,4,{'L': 0,
+                                   (5,3,{'L': 10,
+                                         'p': 0.75,
+                                         'g': 0.00}),
+                                   (6,4,{'L': 8,
+                                         'p': 1.60,
+                                         'g': 0.00}),
+                                   (6,5,{'L': 10,
+                                         'p': 1.75,
+                                         'g': 0.00}),
+                                   (7,6,{'L': 0,
                                          'p': 0.00,
                                          'g': 0.00})])
         
@@ -328,7 +354,7 @@ class NetInvMgmtMasterEnv(gym.Env):
     #         IP = np.cumsum(self.I[n,:] + self.T[n,:])
     #     self.state = IP
     
-    def step(self,action):
+    def step(self, action):
         '''
         Take a step in time in the multiperiod inventory management problem.
         action = number of units to request from each supplier.
@@ -338,6 +364,8 @@ class NetInvMgmtMasterEnv(gym.Env):
                                                         except market nodes)
         '''
         t = self.period
+        if type(action) != dict:
+            action = {key: action[i-1] for i, key in enumerate(self.graph.edges()) if i > 0}
         
         #Place Orders
         for key in action.keys():
