@@ -204,7 +204,7 @@ class NetInvMgmtMasterEnv(gym.Env):
             if 'g' in self.graph.edges[e]:
                 assert self.graph.edges[e]['g'] >= 0, "The pipeline inventory holding costs joining nodes {} cannot be negative.".format(e)
             if 'demand_dist' in self.graph.edges[e]:
-                if isinstance(self.graph.edges[e]['demand_dist'], list):
+                if isinstance(self.graph.edges[e]['demand_dist'], (np.ndarray,list)):
                     assert len(self.graph.edges[e]['demand_dist']) == self.num_periods, "The user specified demand joining (retailer, market): {} must be of length {}.".format(e,self.num_periods)
                 else:
                     dist = self.graph.edges[e]['demand_dist'] #extract distribution
