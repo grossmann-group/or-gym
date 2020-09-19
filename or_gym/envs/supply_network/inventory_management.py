@@ -338,6 +338,9 @@ class NetInvMgmtMasterEnv(gym.Env):
                                                         except market nodes)
         '''
         t = self.period
+
+        if type(action) != dict: #convert to dict if a list was given
+            action = {key: action[i] for i, key in enumerate(self.reorder_links)}
         
         #Place Orders
         for key in action.keys():
@@ -383,19 +386,19 @@ class NetInvMgmtMasterEnv(gym.Env):
         for j in self.retail:
             for k in self.market:
                 Demand = self.graph.edges[(j,k)]['demand_dist']
-                if isinstance(Demand, list):
-                    D = Demand[t]
+                if isinstance(Demand, (list, np.ndarray)):
+                    self.D.loc[t,(j,k)] = Demand[t]
                 else:
-                    D = Demand.rvs(**self.graph.edges[(j,k)]['dist_param'])
+                    self.D.loc[t,(j,k)] = Demand.rvs(**self.graph.edges[(j,k)]['dist_param'])
                 if self.backlog and t >= 1:
-                    self.D.loc[t,(j,k)] = D + self.U.loc[t-1,(j,k)]
+                    D = self.D.loc[t,(j,k)] + self.U.loc[t-1,(j,k)]
                 else:
-                    self.D.loc[t,(j,k)] = D
+                    D = self.D.loc[t,(j,k)]
                 #satisfy demand up to available level
                 X_retail = self.X.loc[t+1,j] #get inventory at retail before demand was realized
-                self.S.loc[t,(j,k)] = min(self.D.loc[t,(j,k)], X_retail) #perform sale
+                self.S.loc[t,(j,k)] = min(D, X_retail) #perform sale
                 self.X.loc[t+1,j] -= self.S.loc[t,(j,k)] #update inventory
-                self.U.loc[t,(j,k)] = self.D.loc[t,(j,k)] - self.S.loc[t,(j,k)] #update unfulfilled orders
+                self.U.loc[t,(j,k)] = D - self.S.loc[t,(j,k)] #update unfulfilled orders
 
         # calculate profit
         for j in self.main_nodes:
