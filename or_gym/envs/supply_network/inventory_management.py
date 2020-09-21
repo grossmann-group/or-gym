@@ -142,30 +142,6 @@ class NetInvMgmtMasterEnv(gym.Env):
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
         
-        # # input parameters
-        # try:
-        #     self.init_inv = np.array(list(self.I0))
-        # except:
-        #     self.init_inv = np.array([self.I0])
-        # self.num_periods = self.periods
-        # self.unit_price = np.append(self.p,self.r[:-1]) # cost to stage 1 is price to stage 2
-        # self.unit_cost = np.array(self.r)
-        # self.demand_cost = np.array(self.k)
-        # self.holding_cost = np.append(self.h,0) # holding cost at last stage is 0
-        # try:
-        #     self.supply_capacity = np.array(list(self.c))
-        # except:
-        #     self.supply_capacity = np.array([self.c])
-        # try:
-        #     self.lead_time = np.array(list(self.L))
-        # except:
-        #     self.lead_time = np.array([self.L])
-        # self.discount = self.alpha
-        # self.user_D = np.array(list(self.user_D))
-        # self.num_stages = len(self.init_inv) + 1
-        # m = self.num_stages
-        # lt_max = self.lead_time.max()
-        
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
         self.market = [j for j in self.graph.nodes() if len(list(self.graph.successors(j))) == 0]
@@ -213,11 +189,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         assert self.graph.number_of_nodes() >= 2, "The minimum number of nodes is 2. Please try again"
         assert self.alpha>0 and self.alpha<=1, "alpha must be in the range (0, 1]."
         
-        # # select distribution
-        # self.demand_dist = distributions[self.dist]  
-        
         # set random generation seed (unless using user demands)
-        # if self.dist < 5:
         self.seed(self.seed_int)
         
         # action space (reorder quantities for each node for each supplier; list)
@@ -313,20 +285,6 @@ class NetInvMgmtMasterEnv(gym.Env):
             state[-m*t:] += self.action_log[:t].flatten()
 
         self.state = state.copy()
-    
-    # def _update_base_stock_policy_state(self):
-    #     '''
-    #     Get current state of the system: Inventory position at each echelon
-    #     Inventory at hand + Pipeline inventory - backlog up to the current stage 
-    #     (excludes last stage since no inventory there, nor replenishment orders placed there).
-    #     '''
-    #     n = self.period
-    #     m = self.num_stages
-    #     if n>=1:
-    #         IP = np.cumsum(self.I[n,:] + self.T[n,:] - self.B[n-1,:-1])
-    #     else:
-    #         IP = np.cumsum(self.I[n,:] + self.T[n,:])
-    #     self.state = IP
     
     def step(self,action):
         '''
@@ -441,35 +399,6 @@ class NetInvMgmtMasterEnv(gym.Env):
         Generate an action by sampling from the action_space
         '''
         return self.action_space.sample()
-        
-    # def base_stock_action(self,z):
-    #     '''
-    #     Sample action (number of units to request) based on a base-stock policy (order up to z policy)
-    #     z = [integer list; dimension |Stages| - 1] base stock level (no inventory at the last stage)
-    #     '''
-    #     n = self.period
-    #     c = self.supply_capacity
-    #     m = self.num_stages
-    #     IP = self._update_base_stock_policy_state() # extract inventory position (current state)
-        
-    #     try:
-    #         dimz = len(z)
-    #     except:
-    #         dimz = 1
-    #     assert dimz == m-1, "Wrong dimension on base stock level vector. Should be # Stages - 1."
-        
-    #     # calculate total inventory position at the beginning of period n
-    #     R = z - IP # replenishmet order to reach zopt
-
-    #     # check if R can actually be fulfilled (capacity and inventory constraints)
-    #     Im1 = np.append(self.I[n,1:], np.Inf) # available inventory at the m+1 stage
-    #                                         # NOTE: last stage has unlimited raw materials
-    #     Rpos = np.column_stack((np.zeros(len(R)),R)) # augmented materix to get replenishment only if positive
-    #     A = np.column_stack((c, np.max(Rpos,axis=1), Im1)) # augmented matrix with c, R, and I_m+1 as columns
-        
-    #     R = np.min(A, axis = 1) # replenishmet order to reach zopt (capacity constrained)
-        
-    #     return R
         
 class NetInvMgmtBacklogEnv(NetInvMgmtMasterEnv):
     def __init__(self, *args, **kwargs):
