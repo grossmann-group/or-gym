@@ -516,6 +516,51 @@ class NetInvMgmtMasterEnv(gym.Env):
         Generate an action by sampling from the action_space
         '''
         return self.action_space.sample()
+
+    def plot_network(self):
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        adjacency_matrix = np.vstack(self.graph.edges())
+        # Set level colors
+        level_col = {'retailer': 0,
+                    'distributor': 1,
+                    'manufacturer': 2,
+                    'raw_materials': 3}
+
+        max_density = np.max([len(v) for v in self.levels.values()])
+        node_coords = {}
+        node_num = 1
+        plt.figure(figsize=(12,8))
+        for i, (level, nodes) in enumerate(self.levels.items()):
+            n = len(nodes)
+            node_y = max_density / 2 if n == 1 else np.linspace(0, max_density, n)
+            node_y = np.atleast_1d(node_y)
+            plt.scatter(np.repeat(i, n), node_y, label=level, s=50)
+            for y in node_y:
+                plt.annotate(r'$N_{}$'.format(node_num), xy=(i, y+0.05))
+                node_coords[node_num] = (i, y)
+                node_num += 1
+
+        # Draw edges
+        for node_num, v in node_coords.items():
+            x, y = v
+            sinks = adjacency_matrix[np.where(adjacency_matrix[:, 0]==node_num)][:, 1]
+            for s in sinks:
+                try:
+                    sink_coord = node_coords[s]
+                except KeyError:
+                    continue
+                for k, n in self.levels.items():
+                    if node_num in n:
+                        color = colors[level_col[k]]
+                x_ = np.hstack([x, sink_coord[0]])
+                y_ = np.hstack([y, sink_coord[1]])
+                plt.plot(x_, y_, color=color)
+
+        plt.ylabel('Node')
+        plt.yticks([0], [''])
+        plt.xlabel('Level')
+        plt.xticks(np.arange(len(self.levels)), [k for k in self.levels.keys()])
+        plt.show()
         
     # def base_stock_action(self,z):
     #     '''
