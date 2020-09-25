@@ -109,14 +109,14 @@ class NetInvMgmtMasterEnv(gym.Env):
                                         h = 0.150)
         # Distributors
         self.graph.add_nodes_from([2], I0 = 100,
-                                        C = 100,
-                                        o = 0.000,
-                                        v = 1.000,
+                                        # C = 100,
+                                        # o = 0.000,
+                                        # v = 1.000,
                                         h = 0.100)
         self.graph.add_nodes_from([3], I0 = 80,
-                                        C = 100,
-                                        o = 0.000,
-                                        v = 1.000,
+                                        # C = 100,
+                                        # o = 0.000,
+                                        # v = 1.000,
                                         h = 0.100)
         # Manufacturers
         self.graph.add_nodes_from([4], I0 = 200,
@@ -129,12 +129,12 @@ class NetInvMgmtMasterEnv(gym.Env):
                                         o = 0.000,
                                         v = 1.000,
                                         h = 0.150)
-        # Raw materials
         self.graph.add_nodes_from([6], I0 = 1000,
                                         C = 80,
                                         o = 0.500,
                                         v = 1.000,
                                         h = 0.000)
+        # Raw materials
         self.graph.add_nodes_from([7])
         self.graph.add_edges_from([(1,0,{'p': 2.00,
                                          'b': 0.10,
@@ -155,13 +155,19 @@ class NetInvMgmtMasterEnv(gym.Env):
                                    (5,3,{'L': 10,
                                          'p': 0.75,
                                          'g': 0.00}),
-                                   (6,4,{'L': 8,
+                                   (6,2,{'L': 8,
                                          'p': 1.60,
                                          'g': 0.00}),
-                                   (6,5,{'L': 10,
+                                   (6,3,{'L': 10,
                                          'p': 1.75,
                                          'g': 0.00}),
-                                   (7,6,{'L': 0,
+                                   (7,4,{'L': 0,
+                                         'p': 0.00,
+                                         'g': 0.00}),
+                                    (7,5,{'L': 0,
+                                         'p': 0.00,
+                                         'g': 0.00}),
+                                    (7,6,{'L': 0,
                                          'p': 0.00,
                                          'g': 0.00})])
         
@@ -194,6 +200,23 @@ class NetInvMgmtMasterEnv(gym.Env):
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
+        self.adjacency_matrix = np.vstack(self.graph.edges())
+        # Set node levels
+        self.levels = {}
+        self.levels['retailer'] = np.array([1])
+        self.levels['distributor'] = np.unique(np.hstack(
+            [list(self.graph.predecessors(i)) for i in self.levels['retailer']]))
+        self.levels['manufacturer'] = np.unique(np.hstack(
+            [list(self.graph.predecessors(i)) for i in self.levels['distributor']]))
+        self.levels['raw_materials'] = np.unique(np.hstack(
+            [list(self.graph.predecessors(i)) for i in self.levels['manufacturer']]))
+
+        self.level_col = {'retailer': 0,
+                    'distributor': 1,
+                    'manufacturer': 2,
+                    'raw_materials': 3}
+
+        # This set-up doesn't work with a broad network
         self.market = [j for j in self.graph.nodes() if len(list(self.graph.successors(j))) == 0]
         self.distrib = [j for j in self.graph.nodes() if 'C' not in self.graph.nodes[j] and 'I0' in self.graph.nodes[j]]
         self.retail = [j for j in self.graph.nodes() if len(set.intersection(set(self.graph.successors(j)), set(self.market))) > 0]
@@ -252,7 +275,12 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.lt_max = np.max([self.graph.edges[e]['L'] for e in self.graph.edges() if 'L' in self.graph.edges[e]])
         self.init_inv_max = np.max([self.graph.nodes[j]['I0'] for j in self.graph.nodes() if 'I0' in self.graph.nodes[j]])
         self.capacity_max = np.max([self.graph.nodes[j]['C'] for j in self.graph.nodes() if 'C' in self.graph.nodes[j]])
-        self.pipeline_length = len(self.main_nodes)*(self.lt_max+1)
+        self.pipeline_length = sum([self.graph.edges[e]['L']
+            for e in self.graph.edges() if 'L' in self.graph.edges[e]])
+        self.lead_times = {e: self.graph.edges[e]['L'] 
+            for e in self.graph.edges() if 'L' in self.graph.edges[e]}
+        self.obs_dim = self.pipeline_length + len(self.main_nodes) + len(self.retail_links)
+        # self.pipeline_length = len(self.main_nodes)*(self.lt_max+1)
         self.action_space = gym.spaces.Box(
             low=np.zeros(num_reorder_links), 
             high=np.ones(num_reorder_links)*(self.init_inv_max + self.capacity_max*self.num_periods), 
@@ -318,7 +346,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.period = 0 # initialize time
         for j in self.main_nodes:
             self.X.loc[0,j]=self.graph.nodes[j]['I0'] # initial inventory
-        self.Y.loc[0,:]=np.zeros(PS) # initial pipeline inventory 
+        self.Y.loc[0,:]=np.zeros(PS) # initial pipeline inventory
         self.action_log = np.zeros([T, PS])
 
         # set state
@@ -327,18 +355,40 @@ class NetInvMgmtMasterEnv(gym.Env):
         return self.state
 
     def _update_state(self):
-        m = len(self.main_nodes)
-        t = self.period
-        state = np.zeros(self.pipeline_length)
-        state[:m] = self.X.loc[t,:]
-        if t == 0:
-            pass
-        elif t >= self.lt_max:
-            state[-m*self.lt_max:] += self.action_log[t-self.lt_max:t].flatten()
-        else:
-            state[-m*t:] += self.action_log[:t].flatten()
+        # State is a concatenation of demand, inventory, and pipeline at each time step
+        demand = np.hstack([self.D[d].iloc[self.period] for d in self.retail_links])
+        inventory = np.hstack([self.X[n].iloc[self.period] for n in self.main_nodes])
 
-        self.state = state.copy()
+        # Pipeline values won't be of proper dimension if current
+        # current period < lead time. We need to add 0's as padding.
+        if self.period == 0:
+            _pipeline = [[self.Y[k].iloc[0]]
+                for k, v in self.lead_times.items()]
+        else:
+            _pipeline = [self.Y[k].iloc[max(self.period-v,0):self.period].values
+                for k, v in self.lead_times.items()]
+        pipeline = []
+        for p, v in zip(_pipeline, self.lead_times.values()):
+            if v == 0:
+                continue
+            if len(p) < v:
+                pipe = np.zeros(v)
+                pipe[-len(p):] += p
+            pipeline.append(pipe)
+        pipeline = np.hstack(pipeline)
+        self.state = np.hstack([demand, inventory, pipeline])
+        # m = len(self.main_nodes)
+        # t = self.period
+        # state = np.zeros(self.pipeline_length)
+        # state[:m] = self.X.loc[t,:]
+        # if t == 0:
+        #     pass
+        # elif t >= self.lt_max:
+        #     state[-m*self.lt_max:] += self.action_log[t-self.lt_max:t].flatten()
+        # else:
+        #     state[-m*t:] += self.action_log[:t].flatten()
+
+        # self.state = state.copy()
     
     # def _update_base_stock_policy_state(self):
     #     '''
@@ -445,11 +495,11 @@ class NetInvMgmtMasterEnv(gym.Env):
             self.P.loc[t,j] = a**t * (SR - PC - OC - HC - UP)
         
         # update period
-        self.period += 1  
-        
+        self.period += 1
+
         # update stae
         self._update_state()
-        
+
         # set reward (profit from current timestep)
         reward = self.P.loc[t,:].sum()
         
