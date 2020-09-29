@@ -12,6 +12,7 @@ import pandas as pd
 from scipy.stats import *
 from or_gym.utils import assign_env_config
 from collections import deque
+import matplotlib.pyplot as plt
 
 class NetInvMgmtMasterEnv(gym.Env):
     '''
@@ -103,25 +104,39 @@ class NetInvMgmtMasterEnv(gym.Env):
                                    columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
         self._max_rewards = 2000
         self.graph = nx.DiGraph()
+        # Retailer
         self.graph.add_nodes_from([0])
         self.graph.add_nodes_from([1], I0 = 100,
                                         h = 0.150)
+        # Distributors
         self.graph.add_nodes_from([2], I0 = 100,
-                                        C = 100,
-                                        o = 0.000,
-                                        v = 1.000,
+                                        # C = 100,
+                                        # o = 0.000,
+                                        # v = 1.000,
                                         h = 0.100)
-        self.graph.add_nodes_from([3], I0 = 200,
+        self.graph.add_nodes_from([3], I0 = 80,
+                                        # C = 100,
+                                        # o = 0.000,
+                                        # v = 1.000,
+                                        h = 0.100)
+        # Manufacturers
+        self.graph.add_nodes_from([4], I0 = 200,
                                         C = 90,
                                         o = 0.000,
                                         v = 1.000,
                                         h = 0.050)
-        self.graph.add_nodes_from([4], I0 = 1000,
+        self.graph.add_nodes_from([5], I0 = 150,
+                                        C = 90,
+                                        o = 0.000,
+                                        v = 1.000,
+                                        h = 0.150)
+        self.graph.add_nodes_from([6], I0 = 1000,
                                         C = 80,
                                         o = 0.500,
                                         v = 1.000,
                                         h = 0.000)
-        self.graph.add_nodes_from([5])
+        # Raw materials
+        self.graph.add_nodes_from([7])
         self.graph.add_edges_from([(1,0,{'p': 2.00,
                                          'b': 0.10,
                                          'demand_dist': poisson,
@@ -129,13 +144,31 @@ class NetInvMgmtMasterEnv(gym.Env):
                                    (2,1,{'L': 3,
                                          'p': 1.50,
                                          'g': 0.00}),
-                                   (3,2,{'L': 5,
+                                   (3,1,{'L': 6,
+                                         'p': 0.80,
+                                         'g': 0.00}),
+                                   (4,2,{'L': 5,
                                          'p': 1.00,
                                          'g': 0.00}),
                                    (4,3,{'L': 10,
                                          'p': 0.75,
                                          'g': 0.00}),
-                                   (5,4,{'L': 0,
+                                   (5,3,{'L': 10,
+                                         'p': 0.75,
+                                         'g': 0.00}),
+                                   (6,2,{'L': 8,
+                                         'p': 1.60,
+                                         'g': 0.00}),
+                                   (6,3,{'L': 10,
+                                         'p': 1.75,
+                                         'g': 0.00}),
+                                   (7,4,{'L': 0,
+                                         'p': 0.00,
+                                         'g': 0.00}),
+                                    (7,5,{'L': 0,
+                                         'p': 0.00,
+                                         'g': 0.00}),
+                                    (7,6,{'L': 0,
                                          'p': 0.00,
                                          'g': 0.00})])
         
@@ -144,6 +177,23 @@ class NetInvMgmtMasterEnv(gym.Env):
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
+        self.adjacency_matrix = np.vstack(self.graph.edges())
+        # Set node levels
+        self.levels = {}
+        self.levels['retailer'] = np.array([1])
+        self.levels['distributor'] = np.unique(np.hstack(
+            [list(self.graph.predecessors(i)) for i in self.levels['retailer']]))
+        self.levels['manufacturer'] = np.unique(np.hstack(
+            [list(self.graph.predecessors(i)) for i in self.levels['distributor']]))
+        self.levels['raw_materials'] = np.unique(np.hstack(
+            [list(self.graph.predecessors(i)) for i in self.levels['manufacturer']]))
+
+        self.level_col = {'retailer': 0,
+                    'distributor': 1,
+                    'manufacturer': 2,
+                    'raw_materials': 3}
+
+        # This set-up doesn't work with a broad network
         self.market = [j for j in self.graph.nodes() if len(list(self.graph.successors(j))) == 0]
         self.distrib = [j for j in self.graph.nodes() if 'C' not in self.graph.nodes[j] and 'I0' in self.graph.nodes[j]]
         self.retail = [j for j in self.graph.nodes() if len(set.intersection(set(self.graph.successors(j)), set(self.market))) > 0]
@@ -198,7 +248,12 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.lt_max = np.max([self.graph.edges[e]['L'] for e in self.graph.edges() if 'L' in self.graph.edges[e]])
         self.init_inv_max = np.max([self.graph.nodes[j]['I0'] for j in self.graph.nodes() if 'I0' in self.graph.nodes[j]])
         self.capacity_max = np.max([self.graph.nodes[j]['C'] for j in self.graph.nodes() if 'C' in self.graph.nodes[j]])
-        self.pipeline_length = len(self.main_nodes)*(self.lt_max+1)
+        self.pipeline_length = sum([self.graph.edges[e]['L']
+            for e in self.graph.edges() if 'L' in self.graph.edges[e]])
+        self.lead_times = {e: self.graph.edges[e]['L'] 
+            for e in self.graph.edges() if 'L' in self.graph.edges[e]}
+        self.obs_dim = self.pipeline_length + len(self.main_nodes) + len(self.retail_links)
+        # self.pipeline_length = len(self.main_nodes)*(self.lt_max+1)
         self.action_space = gym.spaces.Box(
             low=np.zeros(num_reorder_links), 
             high=np.ones(num_reorder_links)*(self.init_inv_max + self.capacity_max*self.num_periods), 
@@ -264,7 +319,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.period = 0 # initialize time
         for j in self.main_nodes:
             self.X.loc[0,j]=self.graph.nodes[j]['I0'] # initial inventory
-        self.Y.loc[0,:]=np.zeros(PS) # initial pipeline inventory 
+        self.Y.loc[0,:]=np.zeros(PS) # initial pipeline inventory
         self.action_log = np.zeros([T, PS])
 
         # set state
@@ -273,20 +328,30 @@ class NetInvMgmtMasterEnv(gym.Env):
         return self.state
 
     def _update_state(self):
-        m = len(self.main_nodes)
-        t = self.period
-        state = np.zeros(self.pipeline_length)
-        state[:m] = self.X.loc[t,:]
-        if t == 0:
-            pass
-        elif t >= self.lt_max:
-            state[-m*self.lt_max:] += self.action_log[t-self.lt_max:t].flatten()
-        else:
-            state[-m*t:] += self.action_log[:t].flatten()
+        # State is a concatenation of demand, inventory, and pipeline at each time step
+        demand = np.hstack([self.D[d].iloc[self.period] for d in self.retail_links])
+        inventory = np.hstack([self.X[n].iloc[self.period] for n in self.main_nodes])
 
-        self.state = state.copy()
+        # Pipeline values won't be of proper dimension if current
+        # current period < lead time. We need to add 0's as padding.
+        if self.period == 0:
+            _pipeline = [[self.Y[k].iloc[0]]
+                for k, v in self.lead_times.items()]
+        else:
+            _pipeline = [self.Y[k].iloc[max(self.period-v,0):self.period].values
+                for k, v in self.lead_times.items()]
+        pipeline = []
+        for p, v in zip(_pipeline, self.lead_times.values()):
+            if v == 0:
+                continue
+            if len(p) < v:
+                pipe = np.zeros(v)
+                pipe[-len(p):] += p
+            pipeline.append(pipe)
+        pipeline = np.hstack(pipeline)
+        self.state = np.hstack([demand, inventory, pipeline])
     
-    def step(self,action):
+    def step(self, action):
         '''
         Take a step in time in the multiperiod inventory management problem.
         action = number of units to request from each supplier.
@@ -296,7 +361,6 @@ class NetInvMgmtMasterEnv(gym.Env):
                                                         except market nodes)
         '''
         t = self.period
-
         if type(action) != dict: #convert to dict if a list was given
             action = {key: action[i] for i, key in enumerate(self.reorder_links)}
         
@@ -378,11 +442,11 @@ class NetInvMgmtMasterEnv(gym.Env):
             self.P.loc[t,j] = a**t * (SR - PC - OC - HC - UP)
         
         # update period
-        self.period += 1  
-        
+        self.period += 1
+
         # update stae
         self._update_state()
-        
+
         # set reward (profit from current timestep)
         reward = self.P.loc[t,:].sum()
         
@@ -399,6 +463,51 @@ class NetInvMgmtMasterEnv(gym.Env):
         Generate an action by sampling from the action_space
         '''
         return self.action_space.sample()
+
+    def plot_network(self):
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        adjacency_matrix = np.vstack(self.graph.edges())
+        # Set level colors
+        level_col = {'retailer': 0,
+                    'distributor': 1,
+                    'manufacturer': 2,
+                    'raw_materials': 3}
+
+        max_density = np.max([len(v) for v in self.levels.values()])
+        node_coords = {}
+        node_num = 1
+        plt.figure(figsize=(12,8))
+        for i, (level, nodes) in enumerate(self.levels.items()):
+            n = len(nodes)
+            node_y = max_density / 2 if n == 1 else np.linspace(0, max_density, n)
+            node_y = np.atleast_1d(node_y)
+            plt.scatter(np.repeat(i, n), node_y, label=level, s=50)
+            for y in node_y:
+                plt.annotate(r'$N_{}$'.format(node_num), xy=(i, y+0.05))
+                node_coords[node_num] = (i, y)
+                node_num += 1
+
+        # Draw edges
+        for node_num, v in node_coords.items():
+            x, y = v
+            sinks = adjacency_matrix[np.where(adjacency_matrix[:, 0]==node_num)][:, 1]
+            for s in sinks:
+                try:
+                    sink_coord = node_coords[s]
+                except KeyError:
+                    continue
+                for k, n in self.levels.items():
+                    if node_num in n:
+                        color = colors[level_col[k]]
+                x_ = np.hstack([x, sink_coord[0]])
+                y_ = np.hstack([y, sink_coord[1]])
+                plt.plot(x_, y_, color=color)
+
+        plt.ylabel('Node')
+        plt.yticks([0], [''])
+        plt.xlabel('Level')
+        plt.xticks(np.arange(len(self.levels)), [k for k in self.levels.keys()])
+        plt.show()
         
 class NetInvMgmtBacklogEnv(NetInvMgmtMasterEnv):
     def __init__(self, *args, **kwargs):
