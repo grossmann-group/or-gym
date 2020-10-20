@@ -103,74 +103,75 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.user_D = pd.DataFrame(data = np.zeros([self.num_periods, 1]), 
                                    columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
         self._max_rewards = 2000
+
+        # create graph
         self.graph = nx.DiGraph()
-        # Retailer
+        # Market 
         self.graph.add_nodes_from([0])
+        # Retailer
         self.graph.add_nodes_from([1], I0 = 100,
-                                        h = 0.150)
+                                        h = 0.030)
         # Distributors
-        self.graph.add_nodes_from([2], I0 = 100,
-                                        # C = 100,
-                                        # o = 0.000,
-                                        # v = 1.000,
-                                        h = 0.100)
+        self.graph.add_nodes_from([2], I0 = 110,
+                                        h = 0.020)
         self.graph.add_nodes_from([3], I0 = 80,
-                                        # C = 100,
-                                        # o = 0.000,
-                                        # v = 1.000,
-                                        h = 0.100)
+                                        h = 0.015)
         # Manufacturers
-        self.graph.add_nodes_from([4], I0 = 200,
+        self.graph.add_nodes_from([4], I0 = 400,
                                         C = 90,
-                                        o = 0.000,
+                                        o = 0.010,
                                         v = 1.000,
-                                        h = 0.050)
-        self.graph.add_nodes_from([5], I0 = 150,
+                                        h = 0.012)
+        self.graph.add_nodes_from([5], I0 = 350,
                                         C = 90,
-                                        o = 0.000,
+                                        o = 0.015,
                                         v = 1.000,
-                                        h = 0.150)
-        self.graph.add_nodes_from([6], I0 = 1000,
+                                        h = 0.013)
+        self.graph.add_nodes_from([6], I0 = 380,
                                         C = 80,
-                                        o = 0.500,
+                                        o = 0.012,
                                         v = 1.000,
-                                        h = 0.000)
+                                        h = 0.011)
         # Raw materials
-        self.graph.add_nodes_from([7])
-        self.graph.add_edges_from([(1,0,{'p': 2.00,
-                                         'b': 0.10,
+        self.graph.add_nodes_from([7, 8])
+        # Links
+        self.graph.add_edges_from([(1,0,{'p': 2.000,
+                                         'b': 0.100,
                                          'demand_dist': poisson,
                                          'dist_param': {'mu': 20}}),
-                                   (2,1,{'L': 3,
-                                         'p': 1.50,
-                                         'g': 0.00}),
-                                   (3,1,{'L': 6,
-                                         'p': 0.80,
-                                         'g': 0.00}),
-                                   (4,2,{'L': 5,
-                                         'p': 1.00,
-                                         'g': 0.00}),
+                                   (2,1,{'L': 5,
+                                         'p': 1.500,
+                                         'g': 0.010}),
+                                   (3,1,{'L': 3,
+                                         'p': 1.600,
+                                         'g': 0.015}),
+                                   (4,2,{'L': 8,
+                                         'p': 1.000,
+                                         'g': 0.008}),
                                    (4,3,{'L': 10,
-                                         'p': 0.75,
-                                         'g': 0.00}),
-                                   (5,3,{'L': 10,
-                                         'p': 0.75,
-                                         'g': 0.00}),
-                                   (6,2,{'L': 8,
-                                         'p': 1.60,
-                                         'g': 0.00}),
-                                   (6,3,{'L': 10,
-                                         'p': 1.75,
-                                         'g': 0.00}),
+                                         'p': 0.800,
+                                         'g': 0.006}),
+                                   (5,2,{'L': 9,
+                                         'p': 0.700,
+                                         'g': 0.005}),
+                                   (6,2,{'L': 11,
+                                         'p': 0.750,
+                                         'g': 0.007}),
+                                   (6,3,{'L': 12,
+                                         'p': 0.800,
+                                         'g': 0.004}),
                                    (7,4,{'L': 0,
-                                         'p': 0.00,
-                                         'g': 0.00}),
-                                    (7,5,{'L': 0,
-                                         'p': 0.00,
-                                         'g': 0.00}),
-                                    (7,6,{'L': 0,
-                                         'p': 0.00,
-                                         'g': 0.00})])
+                                         'p': 0.150,
+                                         'g': 0.000}),
+                                   (7,5,{'L': 1,
+                                         'p': 0.050,
+                                         'g': 0.005}),
+                                   (8,5,{'L': 2,
+                                         'p': 0.070,
+                                         'g': 0.002}),
+                                   (8,6,{'L': 0,
+                                         'p': 0.200,
+                                         'g': 0.000})])
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
@@ -326,9 +327,9 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.action_log = np.zeros([T, PS])
 
         # set state
-        self._update_state()
+        # self._update_state()
         
-        return self.state
+        # return self.state
 
     def _update_state(self):
         # State is a concatenation of demand, inventory, and pipeline at each time step
@@ -448,7 +449,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.period += 1
 
         # update stae
-        self._update_state()
+        # self._update_state()
 
         # set reward (profit from current timestep)
         reward = self.P.loc[t,:].sum()
@@ -459,7 +460,8 @@ class NetInvMgmtMasterEnv(gym.Env):
         else:
             done = False
             
-        return self.state, reward, done, {}
+        # return self.state, reward, done, {}
+        return None, reward, done, {}
     
     def sample_action(self):
         '''
