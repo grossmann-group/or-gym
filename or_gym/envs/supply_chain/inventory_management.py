@@ -248,7 +248,7 @@ class InvManagementMasterEnv(gym.Env):
             IP = np.cumsum(self.I[n,:] + self.T[n,:] - self.B[n-1,:-1])
         else:
             IP = np.cumsum(self.I[n,:] + self.T[n,:])
-        self.state = IP
+        return IP
     
     def step(self,action):
         '''
@@ -364,7 +364,7 @@ class InvManagementMasterEnv(gym.Env):
         n = self.period
         c = self.supply_capacity
         m = self.num_stages
-        IP = self._update_base_stock_policy_state() # extract inventory position (current state)
+        IP = self._update_base_stock_policy_state() # extract inventory position
         
         try:
             dimz = len(z)

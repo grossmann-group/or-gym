@@ -327,7 +327,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.action_log = np.zeros([T, PS])
 
         # set state
-        # self._update_state()
+        self._update_state()
         
         # return self.state
 
@@ -449,7 +449,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.period += 1
 
         # update stae
-        # self._update_state()
+        self._update_state()
 
         # set reward (profit from current timestep)
         reward = self.P.loc[t,:].sum()
