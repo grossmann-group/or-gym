@@ -348,7 +348,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         for p, v in zip(_pipeline, self.lead_times.values()):
             if v == 0:
                 continue
-            if len(p) < v:
+            if len(p) <= v:
                 pipe = np.zeros(v)
                 pipe[-len(p):] += p
             pipeline.append(pipe)
@@ -448,9 +448,6 @@ class NetInvMgmtMasterEnv(gym.Env):
         # update period
         self.period += 1
 
-        # update stae
-        self._update_state()
-
         # set reward (profit from current timestep)
         reward = self.P.loc[t,:].sum()
         
@@ -459,6 +456,9 @@ class NetInvMgmtMasterEnv(gym.Env):
             done = True
         else:
             done = False
+            # update stae
+            self._update_state()
+
             
         # return self.state, reward, done, {}
         return None, reward, done, {}

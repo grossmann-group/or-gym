@@ -1,7 +1,7 @@
 import or_gym
 import numpy as np
 
-env_name = 'InvManagement-v2'
+env_name = 'InvManagement-v3'
 
 env = or_gym.make(env_name)
 action = env.action_space.sample()
