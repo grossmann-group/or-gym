@@ -103,101 +103,78 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.user_D = pd.DataFrame(data = np.zeros([self.num_periods, 1]), 
                                    columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
         self._max_rewards = 2000
+
+        # create graph
         self.graph = nx.DiGraph()
-        # Retailer
+        # Market 
         self.graph.add_nodes_from([0])
+        # Retailer
         self.graph.add_nodes_from([1], I0 = 100,
-                                        h = 0.150)
+                                        h = 0.030)
         # Distributors
-        self.graph.add_nodes_from([2], I0 = 100,
-                                        # C = 100,
-                                        # o = 0.000,
-                                        # v = 1.000,
-                                        h = 0.100)
+        self.graph.add_nodes_from([2], I0 = 110,
+                                        h = 0.020)
         self.graph.add_nodes_from([3], I0 = 80,
-                                        # C = 100,
-                                        # o = 0.000,
-                                        # v = 1.000,
-                                        h = 0.100)
+                                        h = 0.015)
         # Manufacturers
-        self.graph.add_nodes_from([4], I0 = 200,
+        self.graph.add_nodes_from([4], I0 = 400,
                                         C = 90,
-                                        o = 0.000,
+                                        o = 0.010,
                                         v = 1.000,
-                                        h = 0.050)
-        self.graph.add_nodes_from([5], I0 = 150,
+                                        h = 0.012)
+        self.graph.add_nodes_from([5], I0 = 350,
                                         C = 90,
-                                        o = 0.000,
+                                        o = 0.015,
                                         v = 1.000,
-                                        h = 0.150)
-        self.graph.add_nodes_from([6], I0 = 1000,
+                                        h = 0.013)
+        self.graph.add_nodes_from([6], I0 = 380,
                                         C = 80,
-                                        o = 0.500,
+                                        o = 0.012,
                                         v = 1.000,
-                                        h = 0.000)
+                                        h = 0.011)
         # Raw materials
-        self.graph.add_nodes_from([7])
-        self.graph.add_edges_from([(1,0,{'p': 2.00,
-                                         'b': 0.10,
+        self.graph.add_nodes_from([7, 8])
+        # Links
+        self.graph.add_edges_from([(1,0,{'p': 2.000,
+                                         'b': 0.100,
                                          'demand_dist': poisson,
                                          'dist_param': {'mu': 20}}),
-                                   (2,1,{'L': 3,
-                                         'p': 1.50,
-                                         'g': 0.00}),
-                                   (3,1,{'L': 6,
-                                         'p': 0.80,
-                                         'g': 0.00}),
-                                   (4,2,{'L': 5,
-                                         'p': 1.00,
-                                         'g': 0.00}),
+                                   (2,1,{'L': 5,
+                                         'p': 1.500,
+                                         'g': 0.010}),
+                                   (3,1,{'L': 3,
+                                         'p': 1.600,
+                                         'g': 0.015}),
+                                   (4,2,{'L': 8,
+                                         'p': 1.000,
+                                         'g': 0.008}),
                                    (4,3,{'L': 10,
-                                         'p': 0.75,
-                                         'g': 0.00}),
-                                   (5,3,{'L': 10,
-                                         'p': 0.75,
-                                         'g': 0.00}),
-                                   (6,2,{'L': 8,
-                                         'p': 1.60,
-                                         'g': 0.00}),
-                                   (6,3,{'L': 10,
-                                         'p': 1.75,
-                                         'g': 0.00}),
+                                         'p': 0.800,
+                                         'g': 0.006}),
+                                   (5,2,{'L': 9,
+                                         'p': 0.700,
+                                         'g': 0.005}),
+                                   (6,2,{'L': 11,
+                                         'p': 0.750,
+                                         'g': 0.007}),
+                                   (6,3,{'L': 12,
+                                         'p': 0.800,
+                                         'g': 0.004}),
                                    (7,4,{'L': 0,
-                                         'p': 0.00,
-                                         'g': 0.00}),
-                                    (7,5,{'L': 0,
-                                         'p': 0.00,
-                                         'g': 0.00}),
-                                    (7,6,{'L': 0,
-                                         'p': 0.00,
-                                         'g': 0.00})])
+                                         'p': 0.150,
+                                         'g': 0.000}),
+                                   (7,5,{'L': 1,
+                                         'p': 0.050,
+                                         'g': 0.005}),
+                                   (8,5,{'L': 2,
+                                         'p': 0.070,
+                                         'g': 0.002}),
+                                   (8,6,{'L': 0,
+                                         'p': 0.200,
+                                         'g': 0.000})])
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
-        
-        # # input parameters
-        # try:
-        #     self.init_inv = np.array(list(self.I0))
-        # except:
-        #     self.init_inv = np.array([self.I0])
-        # self.num_periods = self.periods
-        # self.unit_price = np.append(self.p,self.r[:-1]) # cost to stage 1 is price to stage 2
-        # self.unit_cost = np.array(self.r)
-        # self.demand_cost = np.array(self.k)
-        # self.holding_cost = np.append(self.h,0) # holding cost at last stage is 0
-        # try:
-        #     self.supply_capacity = np.array(list(self.c))
-        # except:
-        #     self.supply_capacity = np.array([self.c])
-        # try:
-        #     self.lead_time = np.array(list(self.L))
-        # except:
-        #     self.lead_time = np.array([self.L])
-        # self.discount = self.alpha
-        # self.user_D = np.array(list(self.user_D))
-        # self.num_stages = len(self.init_inv) + 1
-        # m = self.num_stages
-        # lt_max = self.lead_time.max()
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
@@ -254,7 +231,7 @@ class NetInvMgmtMasterEnv(gym.Env):
             if 'g' in self.graph.edges[e]:
                 assert self.graph.edges[e]['g'] >= 0, "The pipeline inventory holding costs joining nodes {} cannot be negative.".format(e)
             if 'demand_dist' in self.graph.edges[e]:
-                if isinstance(self.graph.edges[e]['demand_dist'], list):
+                if isinstance(self.graph.edges[e]['demand_dist'], (np.ndarray,list)):
                     assert len(self.graph.edges[e]['demand_dist']) == self.num_periods, "The user specified demand joining (retailer, market): {} must be of length {}.".format(e,self.num_periods)
                 else:
                     dist = self.graph.edges[e]['demand_dist'] #extract distribution
@@ -263,11 +240,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         assert self.graph.number_of_nodes() >= 2, "The minimum number of nodes is 2. Please try again"
         assert self.alpha>0 and self.alpha<=1, "alpha must be in the range (0, 1]."
         
-        # # select distribution
-        # self.demand_dist = distributions[self.dist]  
-        
         # set random generation seed (unless using user demands)
-        # if self.dist < 5:
         self.seed(self.seed_int)
         
         # action space (reorder quantities for each node for each supplier; list)
@@ -283,14 +256,17 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.obs_dim = self.pipeline_length + len(self.main_nodes) + len(self.retail_links)
         # self.pipeline_length = len(self.main_nodes)*(self.lt_max+1)
         self.action_space = gym.spaces.Box(
-            low=np.zeros(num_reorder_links), 
+            low=np.zeros(num_reorder_links),
             high=np.ones(num_reorder_links)*(self.init_inv_max + self.capacity_max*self.num_periods), 
             dtype=np.int32)
         # observation space (total inventory at each node, which is any integer value)
         self.observation_space = gym.spaces.Box(
-            low=-np.ones(self.pipeline_length)*(self.init_inv_max + self.capacity_max*self.num_periods)*10,
-            high=np.ones(self.pipeline_length)*(self.init_inv_max + self.capacity_max*self.num_periods), 
+            low=np.ones(self.obs_dim)*np.iinfo(np.int32).min,
+            high=np.ones(self.obs_dim)*np.iinfo(np.int32).max,
             dtype=np.int32)
+            # low=-np.ones(self.pipeline_length)*(self.init_inv_max + self.capacity_max*self.num_periods)*10,
+            # high=np.ones(self.pipeline_length)*(self.init_inv_max + self.capacity_max*self.num_periods), 
+            # dtype=np.int32)
 
         # intialize
         self.reset()
@@ -351,9 +327,9 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.action_log = np.zeros([T, PS])
 
         # set state
-        self._update_state()
+        # self._update_state()
         
-        return self.state
+        # return self.state
 
     def _update_state(self):
         # State is a concatenation of demand, inventory, and pipeline at each time step
@@ -378,32 +354,6 @@ class NetInvMgmtMasterEnv(gym.Env):
             pipeline.append(pipe)
         pipeline = np.hstack(pipeline)
         self.state = np.hstack([demand, inventory, pipeline])
-        # m = len(self.main_nodes)
-        # t = self.period
-        # state = np.zeros(self.pipeline_length)
-        # state[:m] = self.X.loc[t,:]
-        # if t == 0:
-        #     pass
-        # elif t >= self.lt_max:
-        #     state[-m*self.lt_max:] += self.action_log[t-self.lt_max:t].flatten()
-        # else:
-        #     state[-m*t:] += self.action_log[:t].flatten()
-
-        # self.state = state.copy()
-    
-    # def _update_base_stock_policy_state(self):
-    #     '''
-    #     Get current state of the system: Inventory position at each echelon
-    #     Inventory at hand + Pipeline inventory - backlog up to the current stage 
-    #     (excludes last stage since no inventory there, nor replenishment orders placed there).
-    #     '''
-    #     n = self.period
-    #     m = self.num_stages
-    #     if n>=1:
-    #         IP = np.cumsum(self.I[n,:] + self.T[n,:] - self.B[n-1,:-1])
-    #     else:
-    #         IP = np.cumsum(self.I[n,:] + self.T[n,:])
-    #     self.state = IP
     
     def step(self, action):
         '''
@@ -415,8 +365,8 @@ class NetInvMgmtMasterEnv(gym.Env):
                                                         except market nodes)
         '''
         t = self.period
-        if type(action) != dict:
-            action = {key: action[i-1] for i, key in enumerate(self.graph.edges()) if i > 0}
+        if type(action) != dict: #convert to dict if a list was given
+            action = {key: action[i] for i, key in enumerate(self.reorder_links)}
         
         #Place Orders
         for key in action.keys():
@@ -462,19 +412,19 @@ class NetInvMgmtMasterEnv(gym.Env):
         for j in self.retail:
             for k in self.market:
                 Demand = self.graph.edges[(j,k)]['demand_dist']
-                if isinstance(Demand, list):
-                    D = Demand[t]
+                if isinstance(Demand, (list, np.ndarray)):
+                    self.D.loc[t,(j,k)] = Demand[t]
                 else:
-                    D = Demand.rvs(**self.graph.edges[(j,k)]['dist_param'])
+                    self.D.loc[t,(j,k)] = Demand.rvs(**self.graph.edges[(j,k)]['dist_param'])
                 if self.backlog and t >= 1:
-                    self.D.loc[t,(j,k)] = D + self.U.loc[t-1,(j,k)]
+                    D = self.D.loc[t,(j,k)] + self.U.loc[t-1,(j,k)]
                 else:
-                    self.D.loc[t,(j,k)] = D
+                    D = self.D.loc[t,(j,k)]
                 #satisfy demand up to available level
                 X_retail = self.X.loc[t+1,j] #get inventory at retail before demand was realized
-                self.S.loc[t,(j,k)] = min(self.D.loc[t,(j,k)], X_retail) #perform sale
+                self.S.loc[t,(j,k)] = min(D, X_retail) #perform sale
                 self.X.loc[t+1,j] -= self.S.loc[t,(j,k)] #update inventory
-                self.U.loc[t,(j,k)] = self.D.loc[t,(j,k)] - self.S.loc[t,(j,k)] #update unfulfilled orders
+                self.U.loc[t,(j,k)] = D - self.S.loc[t,(j,k)] #update unfulfilled orders
 
         # calculate profit
         for j in self.main_nodes:
@@ -499,7 +449,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.period += 1
 
         # update stae
-        self._update_state()
+        # self._update_state()
 
         # set reward (profit from current timestep)
         reward = self.P.loc[t,:].sum()
@@ -510,7 +460,8 @@ class NetInvMgmtMasterEnv(gym.Env):
         else:
             done = False
             
-        return self.state, reward, done, {}
+        # return self.state, reward, done, {}
+        return None, reward, done, {}
     
     def sample_action(self):
         '''
@@ -562,35 +513,6 @@ class NetInvMgmtMasterEnv(gym.Env):
         plt.xlabel('Level')
         plt.xticks(np.arange(len(self.levels)), [k for k in self.levels.keys()])
         plt.show()
-        
-    # def base_stock_action(self,z):
-    #     '''
-    #     Sample action (number of units to request) based on a base-stock policy (order up to z policy)
-    #     z = [integer list; dimension |Stages| - 1] base stock level (no inventory at the last stage)
-    #     '''
-    #     n = self.period
-    #     c = self.supply_capacity
-    #     m = self.num_stages
-    #     IP = self._update_base_stock_policy_state() # extract inventory position (current state)
-        
-    #     try:
-    #         dimz = len(z)
-    #     except:
-    #         dimz = 1
-    #     assert dimz == m-1, "Wrong dimension on base stock level vector. Should be # Stages - 1."
-        
-    #     # calculate total inventory position at the beginning of period n
-    #     R = z - IP # replenishmet order to reach zopt
-
-    #     # check if R can actually be fulfilled (capacity and inventory constraints)
-    #     Im1 = np.append(self.I[n,1:], np.Inf) # available inventory at the m+1 stage
-    #                                         # NOTE: last stage has unlimited raw materials
-    #     Rpos = np.column_stack((np.zeros(len(R)),R)) # augmented materix to get replenishment only if positive
-    #     A = np.column_stack((c, np.max(Rpos,axis=1), Im1)) # augmented matrix with c, R, and I_m+1 as columns
-        
-    #     R = np.min(A, axis = 1) # replenishmet order to reach zopt (capacity constrained)
-        
-    #     return R
         
 class NetInvMgmtBacklogEnv(NetInvMgmtMasterEnv):
     def __init__(self, *args, **kwargs):
