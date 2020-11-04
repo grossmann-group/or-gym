@@ -44,7 +44,11 @@ register(id='BinPacking-v5',
 
 # Newsvendor Envs
 register(id='Newsvendor-v0',
-	entry_point='or_gym.envs.classic_or.newsvendor:NewsvendorEnv'
+	entry_point='or_gym.envs.classic_or.newsvendor:NewsVendorBacklogEnv'
+)
+
+register(id='Newsvendor-v1',
+	entry_point='or_gym.envs.classic_or.newsvendor:NewsVendorLostSalesEnv'
 )
 
 # Virtual Machine Packing Envs
