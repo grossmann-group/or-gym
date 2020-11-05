@@ -7,13 +7,13 @@ from argparse import ArgumentParser
 import ray
 from ray import tune
 
-env_name = 'InvManagement-v2'
+env_name = 'InvManagement-v3'
 algo = 'PPO'
 env_config = {}
 
 rl_config = dict(
     env=env_name,
-    num_workers=4,
+    num_workers=2,
     env_config=env_config,
     checkpoint_freq=100,
     checkpoint_at_end=False,
@@ -36,7 +36,7 @@ stop = {
 
 def register_env(env_name, env_config={}):
     env = create_env(env_name)
-    tune.register_env(env_name, 
+    tune.register_env(env_name,
         lambda env_name: env(env_name,
             env_config=env_config))
 
@@ -49,4 +49,4 @@ results = tune.run(
 )
 
 df = results.dataframe()
-df.to_csv('RESULTS/results.csv', index_label=False)
+df.to_csv(f'RESULTS/{env_name}_results.csv', index_label=False)
