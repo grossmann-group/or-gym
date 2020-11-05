@@ -329,7 +329,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         # set state
         self._update_state()
         
-        # return self.state
+        return self.state
 
     def _update_state(self):
         # State is a concatenation of demand, inventory, and pipeline at each time step
@@ -348,7 +348,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         for p, v in zip(_pipeline, self.lead_times.values()):
             if v == 0:
                 continue
-            if len(p) < v:
+            if len(p) <= v:
                 pipe = np.zeros(v)
                 pipe[-len(p):] += p
             pipeline.append(pipe)
@@ -448,9 +448,6 @@ class NetInvMgmtMasterEnv(gym.Env):
         # update period
         self.period += 1
 
-        # update stae
-        self._update_state()
-
         # set reward (profit from current timestep)
         reward = self.P.loc[t,:].sum()
         
@@ -459,9 +456,12 @@ class NetInvMgmtMasterEnv(gym.Env):
             done = True
         else:
             done = False
+            # update stae
+            self._update_state()
+
             
         # return self.state, reward, done, {}
-        return None, reward, done, {}
+        return self.state, reward, done, {}
     
     def sample_action(self):
         '''
@@ -523,6 +523,6 @@ class NetInvMgmtLostSalesEnv(NetInvMgmtMasterEnv):
         super().__init__(*args, **kwargs)
         self.backlog = False
         self.observation_space = gym.spaces.Box(
-            low=np.zeros(self.pipeline_length), # Never goes negative without backlog
-            high=np.ones(self.pipeline_length)*(self.init_inv_max + self.capacity_max*self.num_periods), 
+            low=np.zeros(self.obs_dim), # Never goes negative without backlog
+            high=np.ones(self.obs_dim)**np.iinfo(np.int32).max,
             dtype=np.int32)
