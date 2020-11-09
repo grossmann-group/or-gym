@@ -522,7 +522,7 @@ class NetInvMgmtLostSalesEnv(NetInvMgmtMasterEnv):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.backlog = False
-        self.observation_space = gym.spaces.Box(
-            low=np.zeros(self.obs_dim), # Never goes negative without backlog
-            high=np.ones(self.obs_dim)**np.iinfo(np.int32).max,
-            dtype=np.int32)
+        # self.observation_space = gym.spaces.Box(
+            # low=np.zeros(self.obs_dim), # Never goes negative without backlog
+            # high=np.ones(self.obs_dim)**np.iinfo(np.int32).max,
+            # dtype=np.int32)

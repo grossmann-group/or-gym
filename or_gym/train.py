@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 import ray
 from ray import tune
 
-env_name = 'InvManagement-v3'
+env_name = 'InvManagement-v2'
 algo = 'PPO'
 env_config = {}
 
@@ -15,12 +15,6 @@ rl_config = dict(
     env=env_name,
     num_workers=2,
     env_config=env_config,
-    checkpoint_freq=100,
-    checkpoint_at_end=False,
-    reuse_actors=True,
-    # keep_num_checkpoints=3, # Limits number of checkpoints
-    checkpoint_score_attr='episode_reward_mean',
-    resources_per_trial={"cpu": 4, "gpu": 0},
     model=dict(
         vf_share_layers=False,
         fcnet_activation='elu',
@@ -45,7 +39,13 @@ register_env(env_name, env_config=env_config)
 results = tune.run(
     algo,
     config=rl_config,
-    stop=stop
+    stop=stop,
+    checkpoint_freq=100,
+    checkpoint_at_end=True,
+    reuse_actors=True,
+    # keep_num_checkpoints=3, # Limits number of checkpoints
+    checkpoint_score_attr='episode_reward_mean'
+    # resources_per_trial={"cpu": 4, "gpu": 0},
 )
 
 df = results.dataframe()
