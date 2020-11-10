@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 import ray
 from ray import tune
 
-env_name = 'InvManagement-v2'
+env_name = 'InvManagement-v3'
 algo = 'PPO'
 env_config = {}
 
@@ -36,17 +36,20 @@ def register_env(env_name, env_config={}):
 
 register_env(env_name, env_config=env_config)
 
-results = tune.run(
-    algo,
-    config=rl_config,
-    stop=stop,
-    checkpoint_freq=100,
-    checkpoint_at_end=True,
-    reuse_actors=True,
-    # keep_num_checkpoints=3, # Limits number of checkpoints
-    checkpoint_score_attr='episode_reward_mean'
-    # resources_per_trial={"cpu": 4, "gpu": 0},
-)
+try:
+    results = tune.run(
+        algo,
+        config=rl_config,
+        stop=stop,
+        checkpoint_freq=100,
+        checkpoint_at_end=True,
+        reuse_actors=True,
+        # keep_num_checkpoints=3, # Limits number of checkpoints
+        checkpoint_score_attr='episode_reward_mean'
+        # resources_per_trial={"cpu": 4, "gpu": 0},
+    )
+except Exception as e:
+    pass
 
 df = results.dataframe()
 df.to_csv(f'RESULTS/{env_name}_results.csv', index_label=False)
