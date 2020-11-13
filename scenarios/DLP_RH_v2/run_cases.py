@@ -20,7 +20,10 @@ filesave = path+model+"_"+mode+"_"+ver+"/"
 #solve shrinking horizon model
 for i in range(1):
     #create environmnet with user specified demand
-    env = or_gym.make("InvManagement-"+ver, env_config={'user_D': D[:,i]})
+    user_D = {(1,0): D[:,i]} #assign scenario to retail/market link
+    sample_path = {(1,0): True} #note that the specified demand is sampled from the prob distribution
+    env = or_gym.make("InvManagement-"+ver, env_config={'user_D': user_D,
+                                                        'sample_path': sample_path})
     #loop through each period in the simulation, optimizing along the way
     for t in range(env.num_periods):
         #create model
