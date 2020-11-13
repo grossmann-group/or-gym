@@ -58,7 +58,7 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
     backlog = env.backlog #backlog or lost sales
     #demand profile
     if perfect_information:
-        D = {e: env.graph.edges[e]['demand_dist'].rvs(size=window_size,**env.graph.edges[e]['dist_param']) if np.sum(env.graph.edges[e]['user_D']) == 0 else env.graph.edges[e]['demand_dist'][env.period:] for e in lp.retail_links} #demands on a retail link for each period
+        D = {e: env.graph.edges[e]['demand_dist'].rvs(size=window_size,**env.graph.edges[e]['dist_param']) if np.sum(env.graph.edges[e]['user_D']) == 0 else env.graph.edges[e]['user_D'][env.period:] for e in lp.retail_links} #demands on a retail link for each period
     else:
         D = {e: np.ones(window_size)*env.graph.edges[e]['demand_dist'].mean(**env.graph.edges[e]['dist_param']) if np.sum(env.graph.edges[e]['user_D']) == 0 or env.graph.edges[e]['sample_path'] else np.ones(window_size)*np.mean(env.graph.edges[e]['user_D']) for e in lp.retail_links} #demands on a retail link for each period
     lp.D = pe.Param(lp.demands, initialize = {te:D[te[1:]][te[0]] for te in lp.demands}) #store demands
