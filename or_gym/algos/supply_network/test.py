@@ -40,21 +40,21 @@ for t in range(env2.num_periods):
     Ropt=m2.R.get_values()
     # action={e[2:]:Ropt[e] for e in Ropt.keys() if (e[0]==0 and e[1]==0)}
     action={e[1:]:Ropt[e] for e in Ropt.keys() if e[0]==0}
-    env2.step(action)
+    ans=env2.step(action)
     # break 
 print(env2.P.sum().sum())
 
 #stochastic 542.12 deterministic: 530.46
-# #solve rolling horizon model with window = 10
-# env5=or_gym.make("InvManagement-v2")
-# for t in range(env5.num_periods):
-#     m5=net_im_lp_model(env5,window_size=10)
-#     s5=SolverFactory('gurobi')
-#     res5=s5.solve(m5)
-#     Ropt=m5.R.get_values()
-#     action={e[1:]:Ropt[e] for e in Ropt.keys() if e[0]==0}
-#     env5.step(action)
-# print(env5.P.sum().sum())
+#solve rolling horizon model with window = 10
+env5=or_gym.make("InvManagement-v2")
+for t in range(env5.num_periods):
+    m5=net_im_lp_model(env5,window_size=10)
+    s5=SolverFactory('gurobi')
+    res5=s5.solve(m5)
+    Ropt=m5.R.get_values()
+    action={e[1:]:Ropt[e] for e in Ropt.keys() if e[0]==0}
+    env5.step(action)
+print(env5.P.sum().sum())
 
 # #show final total profits
 # print(np.sum(list(m1.P.get_values().values())))
