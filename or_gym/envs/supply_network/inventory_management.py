@@ -98,7 +98,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         self._max_rewards = 2000
         self.num_periods = 30
         self.backlog = True
-        self.alpha = 0.97
+        self.alpha = 1.00
         self.seed_int = 0
         self.user_D = pd.DataFrame(data = np.zeros([self.num_periods, 1]), 
                                    columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
