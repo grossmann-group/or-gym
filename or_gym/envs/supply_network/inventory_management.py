@@ -183,7 +183,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         elif isinstance(self.user_D.columns, pd.RangeIndex):
             market_edge = [e for e in self.graph.edges() if 'L' not in self.graph.edges[e]]
             assert len(market_edge) == 1, "If specifying a demand profile for more than one retail/market links, use a MultiIndexed DataFrame instead."
-            self.graph.edges[market_edge[0]]['demand_dist'] = self.user_D.values
+            self.graph.edges[market_edge[0]]['demand_dist'] = np.ravel(self.user_D.values)
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
