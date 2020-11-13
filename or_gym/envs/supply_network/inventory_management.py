@@ -98,7 +98,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         self._max_rewards = 2000
         self.num_periods = 30
         self.backlog = True
-        self.alpha = 0.97
+        self.alpha = 1.00
         self.seed_int = 0
         self.user_D = pd.DataFrame(data = np.zeros([self.num_periods, 1]), 
                                    columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
@@ -175,6 +175,15 @@ class NetInvMgmtMasterEnv(gym.Env):
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
+        if isinstance(self.user_D.columns, pd.MultiIndex):
+            for link in self.user_D.columns:
+                d = self.user_D[link].values
+                if np.sum(d) != 0:
+                    self.graph.edges[link]['demand_dist'] = d
+        elif isinstance(self.user_D, pd.RangeIndex):
+            market_edge = [e for e in self.graph.edges() if 'L' not in self.graph.edges[e]]
+            assert len(market_edge) == 1, "If specifying a demand profile for more than one retail/market links, use a MultiIndexed DataFrame instead."
+            self.graph.edges[market_edge[0]]['demand_dist'] = self.user_D.values
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
