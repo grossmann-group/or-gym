@@ -17,7 +17,7 @@ D = pickle.load(open(filename,'rb'))
 filesave = path+model+"_"+ver+"/"
 
 #solve shrinking horizon model
-for i in range(100):
+for i in range(65,66):
     #create environmnet with user specified demand
     user_D = {(1,0): D[:,i]} #assign scenario to retail/market link
     sample_path = {(1,0): True} #note that the specified demand is sampled from the prob distribution
@@ -120,6 +120,7 @@ for i in range(100):
 # 869.1339999999999
 # 786.9770000000001
 # 768.329
+# 852.4499999999998
 # 843.384
 # 827.1809999999999
 # 906.3159999999998
