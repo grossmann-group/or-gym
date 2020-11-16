@@ -105,13 +105,13 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
                 lp.profit.add(lp.P[t,j] == alpha**t * (sum(lp.p[j,k]*lp.S[t,j,k] for k in env.graph.successors(j))
                                                      - sum(lp.p[k,j]*lp.R[t,k,j] for k in env.graph.predecessors(j))
                                                      - lp.h[j]*lp.X[t+1,j] 
-                                                     + sum(lp.g[k,j]*lp.Y[t+1,k,j] for k in env.graph.predecessors(j))))
+                                                     - sum(lp.g[k,j]*lp.Y[t+1,k,j] for k in env.graph.predecessors(j))))
             elif j in lp.Jfactory:
                 lp.profit.add(lp.P[t,j] == alpha**t * (sum(lp.p[j,k]*lp.S[t,j,k] for k in env.graph.successors(j))
                                                      - sum(lp.p[k,j]*lp.R[t,k,j] for k in env.graph.predecessors(j))
                                                      - lp.o[j]/lp.v[j]*sum(lp.S[t,j,k] for k in env.graph.successors(j))
                                                      - lp.h[j]*lp.X[t+1,j] 
-                                                     + sum(lp.g[k,j]*lp.Y[t+1,k,j] for k in env.graph.predecessors(j))))
+                                                     - sum(lp.g[k,j]*lp.Y[t+1,k,j] for k in env.graph.predecessors(j))))
             #on-hand inventory
             if j in lp.Jdistrib:
                 lp.inv_bal.add(lp.X[t+1,j] == lp.X[t,j] 
