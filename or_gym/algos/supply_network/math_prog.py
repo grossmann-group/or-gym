@@ -8,7 +8,7 @@ import networkx as nx
 import pandas as pd
 from scipy.stats import *
 
-def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_expectation=False):
+def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_expectation=True):
     '''
     Build an LP model for the supply chain network InvManagement problem (v2 and v3).
     Three modes exist:
@@ -18,6 +18,9 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
             is used. Set window_size=np.Inf
         3) Rolling horizon: Assumes the average demand from the specified distribution 
             is used. Set window_size for the rolling window.
+
+    Note: if a user demand is used, but it is not sampled from a distribution (sample_path = False),
+            this is equivalent to having use_expectation = False
     ''' 
     
     #adjust window_size towards the end of the simulation (shrinking horizon)
@@ -55,11 +58,11 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
     backlog = env.backlog #backlog or lost sales
     #demand profile
     if perfect_information:
-        D = {e:env.graph.edges[e]['demand_dist'][env.period:] if isinstance(env.graph.edges[e]['demand_dist'],(list, np.ndarray)) else env.graph.edges[e]['demand_dist'].rvs(size=window_size,**env.graph.edges[e]['dist_param']) for e in lp.retail_links} #demands on a retail link for each period
+        D = {e: env.graph.edges[e]['demand_dist'].rvs(size=window_size,**env.graph.edges[e]['dist_param']) if np.sum(env.graph.edges[e]['user_D']) == 0 else env.graph.edges[e]['user_D'][env.period:] for e in lp.retail_links} #demands on a retail link for each period
     else:
-        D = {e:np.ones(window_size)*np.mean(env.graph.edges[e]['demand_dist']) if isinstance(env.graph.edges[e]['demand_dist'],(list, np.ndarray)) else np.ones(window_size)*env.graph.edges[e]['demand_dist'].mean(**env.graph.edges[e]['dist_param']) for e in lp.retail_links} #demands on a retail link for each period
+        D = {e: np.ones(window_size)*env.graph.edges[e]['demand_dist'].mean(**env.graph.edges[e]['dist_param']) if np.sum(env.graph.edges[e]['user_D']) == 0 or env.graph.edges[e]['sample_path'] else np.ones(window_size)*np.mean(env.graph.edges[e]['user_D']) for e in lp.retail_links} #demands on a retail link for each period
     lp.D = pe.Param(lp.demands, initialize = {te:D[te[1:]][te[0]] for te in lp.demands}) #store demands
-    prob = {e:[list(D[e]).count(D[e][t])/len(D[e]) for t in range(window_size)] if isinstance(env.graph.edges[e]['demand_dist'],(list, np.ndarray)) else env.graph.edges[e]['demand_dist'].pmf(D[e],**env.graph.edges[e]['dist_param']) for e in lp.retail_links} #probability of each demand based on distribution
+    prob = {e: env.graph.edges[e]['demand_dist'].pmf(D[e],**env.graph.edges[e]['dist_param']) if np.sum(env.graph.edges[e]['user_D']) == 0 or env.graph.edges[e]['sample_path'] else np.ones(window_size) for e in lp.retail_links} #probability of each demand based on distribution
     lp.prob = pe.Param(lp.demands, initialize = {te:prob[te[1:]][te[0]] for te in lp.demands}) #store probability at each period
     
     #define variables
@@ -102,13 +105,13 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
                 lp.profit.add(lp.P[t,j] == alpha**t * (sum(lp.p[j,k]*lp.S[t,j,k] for k in env.graph.successors(j))
                                                      - sum(lp.p[k,j]*lp.R[t,k,j] for k in env.graph.predecessors(j))
                                                      - lp.h[j]*lp.X[t+1,j] 
-                                                     + sum(lp.g[k,j]*lp.Y[t+1,k,j] for k in env.graph.predecessors(j))))
+                                                     - sum(lp.g[k,j]*lp.Y[t+1,k,j] for k in env.graph.predecessors(j))))
             elif j in lp.Jfactory:
                 lp.profit.add(lp.P[t,j] == alpha**t * (sum(lp.p[j,k]*lp.S[t,j,k] for k in env.graph.successors(j))
                                                      - sum(lp.p[k,j]*lp.R[t,k,j] for k in env.graph.predecessors(j))
                                                      - lp.o[j]/lp.v[j]*sum(lp.S[t,j,k] for k in env.graph.successors(j))
                                                      - lp.h[j]*lp.X[t+1,j] 
-                                                     + sum(lp.g[k,j]*lp.Y[t+1,k,j] for k in env.graph.predecessors(j))))
+                                                     - sum(lp.g[k,j]*lp.Y[t+1,k,j] for k in env.graph.predecessors(j))))
             #on-hand inventory
             if j in lp.Jdistrib:
                 lp.inv_bal.add(lp.X[t+1,j] == lp.X[t,j] 

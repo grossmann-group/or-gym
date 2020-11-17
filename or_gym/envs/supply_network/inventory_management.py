@@ -77,12 +77,7 @@ class NetInvMgmtMasterEnv(gym.Env):
                     i.e. lambda: poisson.rvs(mu=20)
                 - use a list of user specified demands for each period. 
         backlog = Are unfulfilled orders backlogged? True = backlogged, False = lost sales.
-        prob_dist = Value between 1 and 4. Specifies distribution for customer demand.
-            1: poisson distribution
-            2: binomial distribution
-            3: uniform random integer
-            4: geometric distribution
-            5: user supplied demand values
+        demand_dist = distribution function for customer demand (e.g. poisson, binomial, uniform, geometric, etc.)
         dist_param = named values for parameters fed to statistical distribution.
             poisson: {'mu': <mean value>}
             binom: {'n': <mean value>, 
@@ -91,8 +86,9 @@ class NetInvMgmtMasterEnv(gym.Env):
             geom: {'p': <probability. Outcome is the number of trials to success>}
         alpha = discount factor in the range (0,1] that accounts for the time value of money
         seed_int = integer seed for random state.
-        user_D = dataframe containing user specified demand for each (retail, market) pair at
-            each time period in the simulation.
+        user_D = dictionary containing user specified demand (list) for each (retail, market) pair at
+            each time period in the simulation. If all zeros, ignored; otherwise, demands will be taken from this list.
+        sample_path = dictionary specifying if is user_D (for each (retail, market) pair) is sampled from demand_dist.
         '''
         # set default (arbitrary) values when creating environment (if no args or kwargs are given)
         self._max_rewards = 2000
@@ -100,8 +96,8 @@ class NetInvMgmtMasterEnv(gym.Env):
         self.backlog = True
         self.alpha = 1.00
         self.seed_int = 0
-        self.user_D = pd.DataFrame(data = np.zeros([self.num_periods, 1]), 
-                                   columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
+        self.user_D = {(1,0): np.zeros(self.num_periods)}
+        self.sample_path = {(1,0): False}
         self._max_rewards = 2000
 
         # create graph
@@ -175,15 +171,14 @@ class NetInvMgmtMasterEnv(gym.Env):
         
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
-        if isinstance(self.user_D.columns, pd.MultiIndex):
-            for link in self.user_D.columns:
-                d = self.user_D[link].values
-                if np.sum(d) != 0:
-                    self.graph.edges[link]['demand_dist'] = d
-        elif isinstance(self.user_D.columns, pd.RangeIndex):
-            market_edge = [e for e in self.graph.edges() if 'L' not in self.graph.edges[e]]
-            assert len(market_edge) == 1, "If specifying a demand profile for more than one retail/market links, use a MultiIndexed DataFrame instead."
-            self.graph.edges[market_edge[0]]['demand_dist'] = np.ravel(self.user_D.values)
+
+        #save user_D and sample_path to graph metadata
+        for link in self.user_D.keys():
+            d = self.user_D[link]
+            if np.sum(d) != 0:
+                self.graph.edges[link]['user_D'] = d
+                if link in self.sample_path.keys():
+                    self.graph.edges[link]['sample_path'] = self.sample_path[link]
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
@@ -239,12 +234,13 @@ class NetInvMgmtMasterEnv(gym.Env):
                 assert self.graph.edges[e]['b'] >= 0, "The unfulfilled demand costs joining nodes {} cannot be negative.".format(e)
             if 'g' in self.graph.edges[e]:
                 assert self.graph.edges[e]['g'] >= 0, "The pipeline inventory holding costs joining nodes {} cannot be negative.".format(e)
+            if 'user_D' in self.graph.edges[e]:
+                assert len(self.graph.edges[e]['user_D']) == self.num_periods, "The user specified demand joining (retailer, market): {} must be of length {}.".format(e,self.num_periods)
+            if 'sample_path' in self.graph.edges[e]:
+                assert isinstance(self.graph.edges[e]['sample_path'], bool), "When specifying if a user specified demand joining (retailer, market): {} is sampled from a distribution, sample_path must be a Boolean.".format(e)
             if 'demand_dist' in self.graph.edges[e]:
-                if isinstance(self.graph.edges[e]['demand_dist'], (np.ndarray,list)):
-                    assert len(self.graph.edges[e]['demand_dist']) == self.num_periods, "The user specified demand joining (retailer, market): {} must be of length {}.".format(e,self.num_periods)
-                else:
-                    dist = self.graph.edges[e]['demand_dist'] #extract distribution
-                    assert dist.cdf(0,**self.graph.edges[e]['dist_param']), "Wrong parameters passed to the demand distribution joining (retailer, market): {}.".format(e)
+                dist = self.graph.edges[e]['demand_dist'] #extract distribution
+                assert dist.cdf(0,**self.graph.edges[e]['dist_param']), "Wrong parameters passed to the demand distribution joining (retailer, market): {}.".format(e)
         assert self.backlog == False or self.backlog == True, "The backlog parameter must be a boolean."
         assert self.graph.number_of_nodes() >= 2, "The minimum number of nodes is 2. Please try again"
         assert self.alpha>0 and self.alpha<=1, "alpha must be in the range (0, 1]."
@@ -420,10 +416,12 @@ class NetInvMgmtMasterEnv(gym.Env):
         # demand is realized
         for j in self.retail:
             for k in self.market:
-                Demand = self.graph.edges[(j,k)]['demand_dist']
-                if isinstance(Demand, (list, np.ndarray)):
+                #read user specified demand. if all zeros, use demand_dist instead.
+                Demand = self.graph.edges[(j,k)]['user_D']
+                if np.sum(Demand) > 0:
                     self.D.loc[t,(j,k)] = Demand[t]
                 else:
+                    Demand = self.graph.edges[(j,k)]['demand_dist']
                     self.D.loc[t,(j,k)] = Demand.rvs(**self.graph.edges[(j,k)]['dist_param'])
                 if self.backlog and t >= 1:
                     D = self.D.loc[t,(j,k)] + self.U.loc[t-1,(j,k)]

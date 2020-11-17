@@ -23,7 +23,7 @@ print(np.sum(list(m3.P.get_values().values())))
 # D = pd.DataFrame(data = 20*np.ones(30), 
 #                 columns = pd.MultiIndex.from_tuples([(1,0)], names = ['Retailer','Market']))
 D = 20*np.ones(30)
-env4=or_gym.make("InvManagement-v2", env_config={'user_D': D})
+env4=or_gym.make("InvManagement-v2", env_config={'user_D': {(1,0): D}})
 # env4.graph.edges[(1,0)]['demand_dist']=[20 for i in range(env4.num_periods)]
 m4=net_im_lp_model(env4, perfect_information=True)
 s4=SolverFactory('glpk')
