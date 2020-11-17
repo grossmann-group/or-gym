@@ -1,0 +1,15 @@
+{
+  "env": "InvManagement-v3",
+  "env_config": {},
+  "lr": 1e-06,
+  "model": {
+    "fcnet_activation": "elu",
+    "fcnet_hiddens": [
+      256,
+      256
+    ],
+    "vf_share_layers": false
+  },
+  "num_workers": 3,
+  "vf_loss_coeff": 1.0
+}
