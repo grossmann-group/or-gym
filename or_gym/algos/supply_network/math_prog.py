@@ -59,7 +59,7 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
     else:
         D = {e:np.ones(window_size)*np.mean(env.graph.edges[e]['demand_dist']) if isinstance(env.graph.edges[e]['demand_dist'],(list, np.ndarray)) else np.ones(window_size)*env.graph.edges[e]['demand_dist'].mean(**env.graph.edges[e]['dist_param']) for e in lp.retail_links} #demands on a retail link for each period
     lp.D = pe.Param(lp.demands, initialize = {te:D[te[1:]][te[0]] for te in lp.demands}) #store demands
-    prob = {e:[list(D[e]).count(D[e][t])/len(D[e]) for t in range(env.num_periods)] if isinstance(env.graph.edges[e]['demand_dist'],(list, np.ndarray)) else env.graph.edges[e]['demand_dist'].pmf(D[e],**env.graph.edges[e]['dist_param']) for e in lp.retail_links} #probability of each demand based on distribution
+    prob = {e:[list(D[e]).count(D[e][t])/len(D[e]) for t in range(window_size)] if isinstance(env.graph.edges[e]['demand_dist'],(list, np.ndarray)) else env.graph.edges[e]['demand_dist'].pmf(D[e],**env.graph.edges[e]['dist_param']) for e in lp.retail_links} #probability of each demand based on distribution
     lp.prob = pe.Param(lp.demands, initialize = {te:prob[te[1:]][te[0]] for te in lp.demands}) #store probability at each period
     
     #define variables
