@@ -8,7 +8,7 @@ import networkx as nx
 import pandas as pd
 from scipy.stats import *
 
-def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_expectation=True):
+def net_im_lp_model(env, window_size=np.Inf, perfect_information = False):
     '''
     Build an LP model for the supply chain network InvManagement problem (v2 and v3).
     Three modes exist:
@@ -18,9 +18,6 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
             is used. Set window_size=np.Inf
         3) Rolling horizon: Assumes the average demand from the specified distribution 
             is used. Set window_size for the rolling window.
-
-    Note: if a user demand is used, but it is not sampled from a distribution (sample_path = False),
-            this is equivalent to having use_expectation = False
     ''' 
     
     #adjust window_size towards the end of the simulation (shrinking horizon)
@@ -62,8 +59,6 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
     else:
         D = {e: np.ones(window_size)*env.graph.edges[e]['demand_dist'].mean(**env.graph.edges[e]['dist_param']) if np.sum(env.graph.edges[e]['user_D']) == 0 or env.graph.edges[e]['sample_path'] else np.ones(window_size)*np.mean(env.graph.edges[e]['user_D']) for e in lp.retail_links} #demands on a retail link for each period
     lp.D = pe.Param(lp.demands, initialize = {te:D[te[1:]][te[0]] for te in lp.demands}) #store demands
-    prob = {e: env.graph.edges[e]['demand_dist'].pmf(D[e],**env.graph.edges[e]['dist_param']) if np.sum(env.graph.edges[e]['user_D']) == 0 or env.graph.edges[e]['sample_path'] else np.ones(window_size) for e in lp.retail_links} #probability of each demand based on distribution
-    lp.prob = pe.Param(lp.demands, initialize = {te:prob[te[1:]][te[0]] for te in lp.demands}) #store probability at each period
     
     #define variables
     lp.X = pe.Var(lp.T1,lp.J,domain=pe.NonNegativeReals) #on hand inventory at each node
@@ -173,11 +168,7 @@ def net_im_lp_model(env, window_size=np.Inf, perfect_information = False, use_ex
                         lp.unfulfilled.add(lp.U[t,j,k] == lp.D[t,j,k] + env.U.loc[env.period+t-1,(j,k)] - lp.S[t,j,k])
 
     #objective function: maximize average profit
-    if use_expectation:
-        lp.obj = pe.Objective(expr = 1/(window_size) * sum( prod([lp.prob[t,e[0],e[1]] for e in env.retail_links]) * sum(lp.P[t,j] for j in lp.J) for t in lp.T),
-                            sense = pe.maximize)
-    else:
-        lp.obj = pe.Objective(expr = 1/(window_size) * sum(lp.P[t,j] for j in lp.J for t in lp.T),
-                            sense = pe.maximize)
+    lp.obj = pe.Objective(expr = 1/(window_size) * sum(lp.P[t,j] for j in lp.J for t in lp.T),
+                        sense = pe.maximize)
     
     return lp

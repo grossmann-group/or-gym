@@ -149,13 +149,13 @@ def net_im_stoch_lp_model(env, window_size=np.Inf, perfect_information = False, 
                 lp.profit.add(lp.P[n,j] == alpha**(t-1) * (sum(lp.p[j,k]*lp.S[n,j,k] for k in env.graph.successors(j))
                                                      - sum(lp.p[k,j]*lp.R[path_to_root[1],k,j] for k in env.graph.predecessors(j))
                                                      - lp.h[j]*lp.X[n,j] 
-                                                     + sum(lp.g[k,j]*lp.Y[n,k,j] for k in env.graph.predecessors(j))))
+                                                     - sum(lp.g[k,j]*lp.Y[n,k,j] for k in env.graph.predecessors(j))))
             elif j in lp.Jfactory:
                 lp.profit.add(lp.P[n,j] == alpha**(t-1) * (sum(lp.p[j,k]*lp.S[n,j,k] for k in env.graph.successors(j))
                                                      - sum(lp.p[k,j]*lp.R[path_to_root[1],k,j] for k in env.graph.predecessors(j))
                                                      - lp.o[j]/lp.v[j]*sum(lp.S[n,j,k] for k in env.graph.successors(j))
                                                      - lp.h[j]*lp.X[n,j] 
-                                                     + sum(lp.g[k,j]*lp.Y[n,k,j] for k in env.graph.predecessors(j))))
+                                                     - sum(lp.g[k,j]*lp.Y[n,k,j] for k in env.graph.predecessors(j))))
             #on-hand inventory
             if j in lp.Jdistrib:
                 lp.inv_bal.add(lp.X[n,j] == lp.X[path_to_root[1],j] 
