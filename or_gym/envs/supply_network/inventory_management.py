@@ -172,7 +172,7 @@ class NetInvMgmtMasterEnv(gym.Env):
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
 
-        #save user_D and sample_path to graph metadata
+        # Save user_D and sample_path to graph metadata
         for link in self.user_D.keys():
             d = self.user_D[link]
             if np.sum(d) != 0:
@@ -180,7 +180,6 @@ class NetInvMgmtMasterEnv(gym.Env):
                 if link in self.sample_path.keys():
                     self.graph.edges[link]['sample_path'] = self.sample_path[link]
         
-        #  parameters
         self.num_nodes = self.graph.number_of_nodes()
         self.adjacency_matrix = np.vstack(self.graph.edges())
         # Set node levels
@@ -198,7 +197,6 @@ class NetInvMgmtMasterEnv(gym.Env):
                     'manufacturer': 2,
                     'raw_materials': 3}
 
-        # This set-up doesn't work with a broad network
         self.market = [j for j in self.graph.nodes() if len(list(self.graph.successors(j))) == 0]
         self.distrib = [j for j in self.graph.nodes() if 'C' not in self.graph.nodes[j] and 'I0' in self.graph.nodes[j]]
         self.retail = [j for j in self.graph.nodes() if len(set.intersection(set(self.graph.successors(j)), set(self.market))) > 0]
