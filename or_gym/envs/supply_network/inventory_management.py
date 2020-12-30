@@ -297,9 +297,9 @@ class NetInvMgmtMasterEnv(gym.Env):
         '''
         T = self.num_periods
         J = len(self.main_nodes)
-        RM = len(self.retail_links) #number of retailer-market pairs
-        PS = len(self.reorder_links) #number of purchaser-supplier pairs in the network
-        SL = len(self.network_links) #number of edges in the network (excluding links form raw material nodes)
+        RM = len(self.retail_links)  # number of retailer-market pairs
+        PS = len(self.reorder_links) # number of purchaser-supplier pairs in the network
+        SL = len(self.network_links) # number of edges in the network (excluding links form raw material nodes)
         
         # simulation result lists
         self.X=pd.DataFrame(data = np.zeros([T + 1, J]), 
@@ -308,7 +308,7 @@ class NetInvMgmtMasterEnv(gym.Env):
                             columns = pd.MultiIndex.from_tuples(self.reorder_links,
                             names = ['Source','Receiver'])) # pipeline inventory at the beginning of each period
         self.R=pd.DataFrame(data = np.zeros([T, PS]), 
-                            columns = pd.MultiIndex.from_tuples(self.reorder_links, 
+                            columns = pd.MultiIndex.from_tuples(self.reorder_links,
                             names = ['Supplier','Requester'])) # replenishment orders
         self.S=pd.DataFrame(data = np.zeros([T, SL]), 
                             columns = pd.MultiIndex.from_tuples(self.network_links, 
@@ -368,25 +368,25 @@ class NetInvMgmtMasterEnv(gym.Env):
                                                         except market nodes)
         '''
         t = self.period
-        if type(action) != dict: #convert to dict if a list was given
+        if type(action) != dict: # convert to dict if a list was given
             action = {key: action[i] for i, key in enumerate(self.reorder_links)}
         
-        #Place Orders
+        # Place Orders
         for key in action.keys():
-            request = round(max(action[key],0)) #force to integer value
+            request = round(max(action[key],0)) # force to integer value
             supplier = key[0]
             purchaser = key[1]
             if supplier in self.rawmat:
-                self.R.loc[t,(supplier, purchaser)] = request #accept request since supply is unlimited
+                self.R.loc[t,(supplier, purchaser)] = request # accept request since supply is unlimited
                 self.S.loc[t,(supplier, purchaser)] = request
             elif supplier in self.distrib:
-                X_supplier = self.X.loc[t,supplier] #request limited by available inventory at beginning of period
+                X_supplier = self.X.loc[t,supplier] # request limited by available inventory at beginning of period
                 self.R.loc[t,(supplier, purchaser)] = min(request, X_supplier)
                 self.S.loc[t,(supplier, purchaser)] = min(request, X_supplier)
             elif supplier in self.factory:
-                C = self.graph.nodes[supplier]['C'] #supplier capacity
-                v = self.graph.nodes[supplier]['v'] #supplier yield
-                X_supplier = self.X.loc[t,supplier] #on-hand inventory at beginning of period
+                C = self.graph.nodes[supplier]['C'] # supplier capacity
+                v = self.graph.nodes[supplier]['v'] # supplier yield
+                X_supplier = self.X.loc[t,supplier] # on-hand inventory at beginning of period
                 self.R.loc[t,(supplier, purchaser)] = min(request, C, v*X_supplier)
                 self.S.loc[t,(supplier, purchaser)] = min(request, C, v*X_supplier)
             
@@ -464,8 +464,6 @@ class NetInvMgmtMasterEnv(gym.Env):
             # update stae
             self._update_state()
 
-            
-        # return self.state, reward, done, {}
         return self.state, reward, done, {}
     
     def sample_action(self):
