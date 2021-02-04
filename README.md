@@ -6,11 +6,10 @@ This library contains environments consisting of operations research problems wh
 ## Installation
 
 This library requires Python 3.5+ in order to function. 
-Installation is possible via `pip`:
+For the RL algorithms, Ray 1.0.0 is required.
+For the MP algorithms, an LP solver (e.g., Gurobi or GLPK needs to be installed).
 
-`$ pip install or-gym`
-
-Or, you can install directly from GitHub with:
+You can install directly from GitHub with:
 
 ```
 git clone https://github.com/hubbs5/or-gym.git
