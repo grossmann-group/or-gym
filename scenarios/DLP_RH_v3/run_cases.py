@@ -11,7 +11,7 @@ ver = "v3"
 model = "DLP"
 mode = "RH"
 window = 10
-solver = "glpk"
+solver = "gurobi"
 
 #create file names
 filename = path+"in"+ver+".pkl"
