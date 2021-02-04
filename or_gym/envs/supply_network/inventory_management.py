@@ -86,9 +86,11 @@ class NetInvMgmtMasterEnv(gym.Env):
             geom: {'p': <probability. Outcome is the number of trials to success>}
         alpha = discount factor in the range (0,1] that accounts for the time value of money
         seed_int = integer seed for random state.
-        user_D = dictionary containing user specified demand (list) for each (retail, market) pair at
-            each time period in the simulation. If all zeros, ignored; otherwise, demands will be taken from this list.
-        sample_path = dictionary specifying if is user_D (for each (retail, market) pair) is sampled from demand_dist.
+        user_D = dictionary with lists of user specified demand at each time period for on each (retail, market) pair. 
+            If lists are all zeros, ignored; otherwise, demands will be taken from this list.
+        sample_path = dictionary with booleans specifying if the user_D on the same (retail, market) key is sampled from demand_dist.
+            If true, then the average demand used in the LP model is calculated from the demand_dist; otherwise, it is
+            taken from the user_D.
         '''
         # set default (arbitrary) values when creating environment (if no args or kwargs are given)
         self._max_rewards = 2000
@@ -172,13 +174,12 @@ class NetInvMgmtMasterEnv(gym.Env):
         # add environment configuration dictionary and keyword arguments
         assign_env_config(self, kwargs)
 
-        #save user_D and sample_path to graph metadata
+        #save user_D and sample_path to graph metadata 
         for link in self.user_D.keys():
             d = self.user_D[link]
-            if np.sum(d) != 0:
-                self.graph.edges[link]['user_D'] = d
-                if link in self.sample_path.keys():
-                    self.graph.edges[link]['sample_path'] = self.sample_path[link]
+            self.graph.edges[link]['user_D'] = d
+            if link in self.sample_path.keys():
+                self.graph.edges[link]['sample_path'] = self.sample_path[link]
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
