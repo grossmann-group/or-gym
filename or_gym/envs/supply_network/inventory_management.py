@@ -175,10 +175,9 @@ class NetInvMgmtMasterEnv(gym.Env):
         #save user_D and sample_path to graph metadata
         for link in self.user_D.keys():
             d = self.user_D[link]
-            if np.sum(d) != 0:
-                self.graph.edges[link]['user_D'] = d
-                if link in self.sample_path.keys():
-                    self.graph.edges[link]['sample_path'] = self.sample_path[link]
+            self.graph.edges[link]['user_D'] = d
+            if link in self.sample_path.keys():
+                self.graph.edges[link]['sample_path'] = self.sample_path[link]
         
         #  parameters
         self.num_nodes = self.graph.number_of_nodes()
