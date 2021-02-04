@@ -51,3 +51,14 @@ Information on results and supporting models can be found [here](https://arxiv.o
 ## Examples
 
 - [Action Masking with RLlib using the Knapsack Environment](https://www.datahubbs.com/action-masking-with-rllib/)
+- [How to Use Deep Reinforcement Learning to Improve your Supply Chain](https://www.datahubbs.com/how-to-use-deep-reinforcement-learning-to-improve-your-supply-chain/)
+- @article{perez2021algorithmic,
+  title={Algorithmic Approaches to Inventory Management Optimization},
+  author={Perez, Hector D and Hubbs, Christian D and Li, Can and Grossmann, Ignacio E},
+  journal={Processes},
+  volume={9},
+  number={1},
+  pages={102},
+  year={2021},
+  publisher={Multidisciplinary Digital Publishing Institute}
+}
