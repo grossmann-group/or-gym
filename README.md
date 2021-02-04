@@ -12,7 +12,7 @@ For the MP algorithms, an LP solver (e.g., Gurobi or GLPK needs to be installed)
 You can install directly from GitHub with:
 
 ```
-git clone https://github.com/hubbs5/or-gym.git
+git clone https://github.com/grossmann-group/or-gym.git
 cd or-gym
 pip install -e .
 ```
